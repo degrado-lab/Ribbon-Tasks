@@ -28,7 +28,7 @@ def make_chai_fasta(input_fasta, output_fasta, smiles):
                 outfile.write(f">protein|name={name}\n")
             else:
                 # Write the sequence lines as is
-                outfile.write(line)
+                outfile.write(line.strip() + "\n")
         
         # Add the SMILES string as a new entry for the ligand
         outfile.write(f">ligand|name=LIG\n")
