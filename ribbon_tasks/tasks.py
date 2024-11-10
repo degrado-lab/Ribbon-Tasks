@@ -132,7 +132,7 @@ class FastRelax(Task):
         )
 
 class Chai1(Task):
-    def __init__(self, fasta_file, smiles_string, output_prefix, output_dir, device='gpu'):
+    def __init__(self, fasta_file, output_prefix, output_dir, smiles_string=None, device='gpu'):
         ''' Run the Chai-1 task.
         Args:
             fasta_file (str): 
@@ -187,11 +187,12 @@ class CalculateDistance(Task):
         Returns:
             None
         ''' 
+        print('BBBBBBBBBBBBBBBBBBBBBBBBBBUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUTTTTTTTTTTTTTTTTTTTTTSSSS')
         # Initialize the Task class
         super().__init__()
 
         # This Task name matches the name in the tasks.json file
-        self.task_name = "Calculate SASA"
+        self.task_name = "Calculate Distance"
         
         # Task-specific variables
         self.pdb_file = pdb_file
@@ -207,7 +208,7 @@ class CalculateDistance(Task):
     def run(self):
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
-
+        print('butts butts butts')
         # Run the task
         self._run_task(
             self.task_name,

@@ -65,6 +65,8 @@ if __name__ == "__main__":
     parser.add_argument("--output_file", type=str, help="Path to the output file", default=None)
     args = parser.parse_args()
 
+    print("BUTTTTTTTTTTTTTTTTTTTTTTTTTS ARE FOR POOPING")
+    
     pdb_file = args.pdb_file
     chain1_id = args.chain1_id
     res1_id = args.res1_id

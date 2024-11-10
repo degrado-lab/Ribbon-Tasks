@@ -18,7 +18,10 @@
         "description": "Run Chai-1 structure prediction on a FASTA file and SMILES.",
         "container": "Chai-1",
         "command": "python $RIBBON_TASKS_DIR/ribbon_tasks/task_scripts/chai-1/predict_structure.py {fasta_file} \" {smiles_string} \" {output_dir} {extra_args}",
-        "requirements": "None"
+        "requirements": "None",
+        "environment_variables": {
+            "TRANSFORMERS_OFFLINE": "1"
+        }
     },
     "Calculate Distance": {
         "name": "Calculate Distance",
@@ -31,7 +34,7 @@
         "name": "Calculate SASA",
         "description": "Calculate the solvent accessible surface area of an object in a PDB file.",
         "container": "BioPython",
-        "command": "python3 $RIBBON_TASKS_DIR/ribbon_tasks/task_scripts/biopython/calculate_sasa.py {pdb_file} --output_file {output_file} {extra_args}",
+        "command": "python3 $RIBBON_TASKS_DIR/ribbon_tasks/task_scripts/biopython/calculate_SASA.py {pdb_file} --output_file {output_file} {extra_args}",
         "requirements": "None"
     },
     "Calculate Plane Angle": {

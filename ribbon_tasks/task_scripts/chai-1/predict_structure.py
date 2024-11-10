@@ -9,6 +9,7 @@ from chai_lab.chai1 import run_inference
 import argparse
 import tempfile
 import shutil
+import os
 
 
 ''' 
@@ -31,8 +32,9 @@ def make_chai_fasta(input_fasta, output_fasta, smiles):
                 outfile.write(line.strip() + "\n")
         
         # Add the SMILES string as a new entry for the ligand
-        outfile.write(f">ligand|name=LIG\n")
-        outfile.write(f"{smiles}\n")
+        if smiles is not None:
+            outfile.write(f">ligand|name=LIG\n")
+            outfile.write(f"{smiles}\n")
 
 def rename_files(output_dir, prefix):
     for file in output_dir.iterdir():
@@ -42,7 +44,7 @@ def rename_files(output_dir, prefix):
             file.rename(new_file)
 
 if __name__=="__main__":
-
+    
     # Parse arguments
     parser = argparse.ArgumentParser(description="Predict the structure of a protein-ligand complex.")
     parser.add_argument("fasta_file", type=str, help="Path to the FASTA file")
