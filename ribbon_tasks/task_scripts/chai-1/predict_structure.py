@@ -20,7 +20,7 @@ AGSHSMRYFSTSVSRPGRGEPRFIAVGYVDD
 CCCCCCCCCCCCCC(=O)O
 '''
 
-def make_chai_fasta(input_fasta, output_fasta, smiles):
+def make_chai_fasta(input_fasta, output_fasta, smiles, num_ligands=1):
     with open(input_fasta, 'r') as infile, open(output_fasta, 'w') as outfile:
         for line in infile:
             if line.startswith(">"):
@@ -33,8 +33,9 @@ def make_chai_fasta(input_fasta, output_fasta, smiles):
         
         # Add the SMILES string as a new entry for the ligand
         if smiles is not None:
-            outfile.write(f">ligand|name=LIG\n")
-            outfile.write(f"{smiles}\n")
+            for i in range(num_ligands):
+                outfile.write(f">ligand|name=LIG_{i}\n")
+                outfile.write(f"{smiles}\n")
 
 def rename_files(output_dir, prefix):
     for file in output_dir.iterdir():
@@ -44,12 +45,13 @@ def rename_files(output_dir, prefix):
             file.rename(new_file)
 
 if __name__=="__main__":
-    
+
     # Parse arguments
     parser = argparse.ArgumentParser(description="Predict the structure of a protein-ligand complex.")
     parser.add_argument("fasta_file", type=str, help="Path to the FASTA file")
     parser.add_argument("SMILES_string", type=str, help="Ligand smiles string")
     parser.add_argument("output_dir", type=str, help="Path to the output directory")
+    parser.add_argument("--num_ligands", type=int, help="Number of ligands", default=1)
     parser.add_argument("--num_trunk_recycles", type=int, help="Number of trunk recycles", default=3)
     parser.add_argument("--num_diffn_timesteps", type=int, help="Number of differentiable timesteps", default=200)
     parser.add_argument("--seed", type=int, help="Random seed", default=42)
@@ -59,13 +61,14 @@ if __name__=="__main__":
     fasta_file = args.fasta_file
     smiles = args.SMILES_string
     output_dir = args.output_dir
+    num_ligands = args.num_ligands
     num_trunk_recycles = args.num_trunk_recycles
     num_diffn_timesteps = args.num_diffn_timesteps
     seed = args.seed
 
     # Make a new FASTA file with the SMILES string as tempfile:
     temp_fasta = tempfile.NamedTemporaryFile(delete=False)
-    make_chai_fasta(fasta_file, temp_fasta.name, smiles)
+    make_chai_fasta(fasta_file, temp_fasta.name, smiles, num_ligands=num_ligands)
 
     # Store initial outputs to a temporary directory:
     temp_output = tempfile.TemporaryDirectory()

@@ -17,7 +17,7 @@
         "name": "Chai-1",
         "description": "Run Chai-1 structure prediction on a FASTA file and SMILES.",
         "container": "Chai-1",
-        "command": "python $RIBBON_TASKS_DIR/ribbon_tasks/task_scripts/chai-1/predict_structure.py {fasta_file} \" {smiles_string} \" {output_dir} {extra_args}",
+        "command": "python $RIBBON_TASKS_DIR/ribbon_tasks/task_scripts/chai-1/predict_structure.py {fasta_file} \" {smiles_string} \" {output_dir} --num_ligands {num_ligands} {extra_args}",
         "requirements": "None",
         "environment_variables": {
             "TRANSFORMERS_OFFLINE": "1"

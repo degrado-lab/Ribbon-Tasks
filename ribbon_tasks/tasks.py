@@ -6,7 +6,7 @@ import shutil
 import json
 
 class LigandMPNN(Task):
-    def __init__(self, output_dir, structure_list, num_designs=1):
+    def __init__(self, output_dir, structure_list, num_designs=1, device='cpu', extra_args=None):
         ''' Initialize a LigandMPNN task. 
         Args:
             output_dir (str): 
@@ -24,7 +24,7 @@ class LigandMPNN(Task):
                     - seqs_split: The sequences split into separate FASTA files, one per design. Each line is a separate chain. 
         '''
         # Initialize the Task class
-        super().__init__()
+        super().__init__(device=device, extra_args=extra_args)
 
         # This Task name matches the name in the tasks.json file
         self.task_name = "LigandMPNN"
@@ -71,7 +71,9 @@ class LigandMPNN(Task):
         self.output_dir = make_directory(self.output_dir)
 
         # Then, write out the files within pdb_input_dir to a json file:
-        pdb_input_json = self.output_dir / 'pdb_input.json'
+        #pdb_input_json = self.output_dir / 'pdb_input.json'
+        # Make a temp file for the json:
+        pdb_input_json = tempfile.NamedTemporaryFile(delete=False).name
         with open(pdb_input_json, 'w') as f:
             json.dump(self.structure_list, f)
         
@@ -132,7 +134,7 @@ class FastRelax(Task):
         )
 
 class Chai1(Task):
-    def __init__(self, fasta_file, output_prefix, output_dir, smiles_string=None, device='gpu'):
+    def __init__(self, fasta_file, output_prefix, output_dir, smiles_string=None, num_ligands=1, device='gpu'):
         ''' Run the Chai-1 task.
         Args:
             fasta_file (str): 
@@ -156,6 +158,7 @@ class Chai1(Task):
         self.output_prefix = output_prefix
         self.output_dir = output_dir
         self.device = device
+        self.num_ligands = num_ligands
 
     def run(self):
         # Make the directory:
@@ -167,6 +170,7 @@ class Chai1(Task):
             fasta_file=self.fasta_file,
             smiles_string=self.smiles_string,
             output_dir=str(self.output_dir),
+            num_ligands=self.num_ligands,
             output_prefix=self.output_prefix,
             device=self.device
         )
@@ -187,7 +191,6 @@ class CalculateDistance(Task):
         Returns:
             None
         ''' 
-        print('BBBBBBBBBBBBBBBBBBBBBBBBBBUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUTTTTTTTTTTTTTTTTTTTTTSSSS')
         # Initialize the Task class
         super().__init__()
 
@@ -208,7 +211,7 @@ class CalculateDistance(Task):
     def run(self):
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
-        print('butts butts butts')
+
         # Run the task
         self._run_task(
             self.task_name,
