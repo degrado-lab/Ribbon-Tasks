@@ -60,7 +60,7 @@ if __name__=="__main__":
     args = parser.parse_args()
     fasta_file = args.fasta_file
     smiles = args.SMILES_string
-    if smiles == "None":
+    if "None" in smiles:
         smiles = None # If no ligand is provided
     output_dir = args.output_dir
     num_ligands = args.num_ligands
