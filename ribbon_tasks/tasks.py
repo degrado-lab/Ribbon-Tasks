@@ -134,7 +134,7 @@ class FastRelax(Task):
         )
 
 class Chai1(Task):
-    def __init__(self, fasta_file, output_prefix, output_dir, smiles_string=None, num_ligands=1, device='gpu'):
+    def __init__(self, fasta_file, output_prefix, output_dir='.', smiles_string=None, num_ligands=1, device='gpu'):
         ''' Run the Chai-1 task.
         Args:
             fasta_file (str): 
