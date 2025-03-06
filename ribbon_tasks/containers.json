@@ -1,8 +1,8 @@
 {
-    "LigandMPNN": ["ligandMPNN.sif", "oras://docker.io/nicholasfreitas/ligandmpnn:latest"],
-    "Rosetta":  ["rosetta.sif", "oras://docker.io/nicholasfreitas/rosetta:latest"],
-    "BioPython":  ["biopython.sif", "oras://docker.io/nicholasfreitas/biopython:latest"],
-    "Chai-1":     ["chai-1.sif", "oras://docker.io/nicholasfreitas/chai-1:latest"],
-    "Ribbon":     ["ribbon.sif", "oras://docker.io/nicholasfreitas/ribbon:latest"],
-    "RaptorXSingle": ["raptorx-single.sif", "oras://docker.io/nicholasfreitas/raptorx-single:latest"]
+    "LigandMPNN": ["ligandMPNN.sif", "docker://nicholasfreitas/ligandmpnn:latest"],
+    "Rosetta":  ["rosetta.sif", "docker://nicholasfreitas/rosetta:latest"],
+    "BioPython":  ["biopython.sif", "docker://nicholasfreitas/biopython:latest"],
+    "Chai-1":     ["chai-1.sif", "docker://nicholasfreitas/chai-1:latest"],
+    "Ribbon":     ["ribbon.sif", "docker://nicholasfreitas/ribbon:latest"],
+    "RaptorXSingle": ["raptorx-single.sif", "docker://nicholasfreitas/raptorx-single:latest"]
 }
