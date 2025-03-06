@@ -23,6 +23,13 @@
             "TRANSFORMERS_OFFLINE": "1"
         }
     },
+    "RaptorXSingle": {
+        "name": "RaptorXSingle",
+        "description": "Run RaptorXSingle on a FASTA file.",
+        "container": "RaptorXSingle",
+        "command": "python RaptorX-Single/pred.py {fasta_file} {param} --plm_param_dir RaptorX-Single/params/ --out_dir {output_dir} --device {device_id} {extra_args}",
+        "requirements": "None"
+    },
     "Calculate Distance": {
         "name": "Calculate Distance",
         "description": "Calculate the distance between two atoms in a PDB file.",
