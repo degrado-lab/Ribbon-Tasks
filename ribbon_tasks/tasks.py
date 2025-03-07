@@ -346,7 +346,73 @@ class CalculateSASA(Task):
             device=self.device
         )
 
+class RosettaFoldAA(Task):
+    def __init__(self, input_structure, output_dir, contig_map, num_designs=1, total_length='null', ligand='null',  diffuser_steps=200, deterministic=False, design_startnum=0, force=False, device='gpu', extra_args=""):
+        """
+        Initialize a RosettaFoldAA task.
 
+        Args:
+            input_structure (str): The input structure file.
+            output_dir (str): The directory to save the output files.
+            contig_map (str): The contig map. This is formatted as a hydra list. E.g. "[150-150]".
+            num_designs (int): The number of designs to generate per input structure.
+            total_length (str): The total length of the protein (e.g. "150-150"). Default is 'null'.
+            ligand (str): The residue ID of the ligand to dock. (e.g. "OQO"). Default is 'null'.
+            diffuser_steps (int): The number of steps to run the diffuser for. Default is 200.
+            deterministic (bool): Whether to use a deterministic seed for the diffuser. Default is False.
+            design_startnum (int): The starting number for the design output files. Useful for batching jobs in the same out directory. Default is 0.
+            force (bool): Whether to overwrite existing output files. Default is False.
+            device (str): The device to run the task on. Default is 'gpu'.
+            extra_args (str): Additional arguments for the task. Default is an empty string.
+
+        Returns:
+            None
+            Outputs designs in the output_dir.
+        """
+        # Initialize the Task class
+        super().__init__(device=device, extra_args=extra_args)
+
+        # This Task name matches the name in the tasks.json file
+        self.task_name = "LigandMPNN"
+        
+        # Your arguments here:
+        self.input_structure = input_structure
+        self.output_dir = output_dir
+        self.contig_map = contig_map
+        self.num_designs = num_designs
+        self.total_length = total_length
+        self.ligand = ligand
+        self.diffuser_steps = diffuser_steps
+        self.deterministic = deterministic
+        self.design_startnum = design_startnum
+        self.force = force
+        # we should have a final length flag for config.length
+
+    def run(self):
+        
+        # Make directories:
+        self.output_dir = make_directory(self.output_dir)
+
+        # Convert the output_dir to a prefix:
+        output_prefix = Path(self.output_dir) / 'design'
+        
+        # Run the task:
+        self._run_task(self.task_name, 
+                    input_structure = self.input_structure,
+                    output_prefix = str(output_prefix),  # we provide a prefix (e.g. ./out/sample) instead of dir (e.g. ./out)
+                    contig_map = self.contig_map,
+                    num_designs = self.num_designs,
+                    total_length = self.total_length,
+                    ligand = self.ligand,
+                    diffuser_steps = self.diffuser_steps,
+                    deterministic = self.deterministic,
+                    design_startnum = self.design_startnum,
+                    cautious = not self.force,  # If force is True, then we overwrite existing files
+                    extra_args = self.extra_args,
+                    device = self.device)
+        
+        return 
+    
 class Custom(Task):
     def __init__(self, command, container='Ribbon', device='cpu'):
         """

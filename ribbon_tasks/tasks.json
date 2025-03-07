@@ -13,6 +13,13 @@
         "command": "relax -in:file:s {pdb_string} -out:path:pdb {output_dir} -out:path:score {output_dir} {extra_args}",
         "requirements": "None"
     },
+    "RFDiffusionAA": {
+        "name": "RFDiffusionAA",
+        "description": "Run RFDiffusionAA on a PDB file.",
+        "container": "RFDiffusionAA",
+        "command": "python -u rf_diffusion_all_atom/run_inference.py inference.input_pdb={input_structure} inference.num_designs={num_designs} contigmap.contigs={contig_map} contigmap.length={total_length} inference.ligand={ligand} inference.output_prefix={output_prefix} inference.cautious={cautious} inference.deterministic={deterministic} diffuser.T={diffuser_steps} {extra_args}",
+        "requirements": "None"
+    },
     "Chai-1": {
         "name": "Chai-1",
         "description": "Run Chai-1 structure prediction on a FASTA file and SMILES.",
