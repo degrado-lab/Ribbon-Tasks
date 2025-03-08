@@ -346,10 +346,10 @@ class CalculateSASA(Task):
             device=self.device
         )
 
-class RosettaFoldAA(Task):
+class RFDiffusionAA(Task):
     def __init__(self, input_structure, output_dir, contig_map, num_designs=1, total_length='null', ligand='null',  diffuser_steps=200, deterministic=False, design_startnum=0, force=False, device='gpu', extra_args=""):
         """
-        Initialize a RosettaFoldAA task.
+        Initialize a RFDiffusionAA task.
 
         Args:
             input_structure (str): The input structure file.
@@ -373,7 +373,7 @@ class RosettaFoldAA(Task):
         super().__init__(device=device, extra_args=extra_args)
 
         # This Task name matches the name in the tasks.json file
-        self.task_name = "LigandMPNN"
+        self.task_name = "RFDiffusionAA"
         
         # Your arguments here:
         self.input_structure = input_structure
