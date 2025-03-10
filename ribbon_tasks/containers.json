@@ -1,5 +1,5 @@
 {
-    "LigandMPNN": ["ligandMPNN_0.0.1.sif", "oras://docker.io/nicholasfreitas/ligandmpnn:0.0.1"],
+    "LigandMPNN": ["ligandMPNN_25.3.10.sif", "oras://docker.io/nicholasfreitas/ligandmpnn:25.3.10"],
     "Rosetta":  ["rosetta_serial-386.sif", "oras://docker.io/nicholasfreitas/rosetta:serial-386"],
     "BioPython":  ["biopython_latest.sif", "oras://docker.io/nicholasfreitas/biopython:latest"],
     "Chai-1":     ["chai-1_0.5.2.sif", "oras://docker.io/nicholasfreitas/chai-1:0.5.2"],
