@@ -3,7 +3,7 @@
     "Rosetta":  ["rosetta.sif", "oras://docker.io/nicholasfreitas/rosetta:serial-386"],
     "BioPython":  ["biopython.sif", "oras://docker.io/nicholasfreitas/biopython:latest"],
     "Chai-1":     ["chai-1.sif", "oras://docker.io/nicholasfreitas/chai-1:0.5.2"],
-    "Ribbon":     ["ribbon.sif", "oras://docker.io/nicholasfreitas/ribbon:0.2.0"],
+    "Ribbon":     ["ribbon.sif", "oras://docker.io/nicholasfreitas/ribbon:0.2.2"],
     "RaptorXSingle": ["raptorx-single.sif", "oras://docker.io/nicholasfreitas/raptorx-single:25.3.1"],
     "RFDiffusionAA": ["rfdiffusionaa.sif", "oras://docker.io/nicholasfreitas/rfdiffusionaa:25.3.2"]
 }
