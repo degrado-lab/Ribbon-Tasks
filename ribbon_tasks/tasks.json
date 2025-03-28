@@ -41,7 +41,14 @@
         "name": "Calculate Distance",
         "description": "Calculate the distance between two atoms in a PDB file.",
         "container": "BioPython",
-        "command": "python3 $RIBBON_TASKS_MODULE_DIR/task_scripts/biopython/calculate_distance.py {pdb_file} {chain1_id} {res1_id} {atom1_name} {chain2_id} {res2_id} {atom2_name} --output_file {output_file}",
+        "command": "python3 $RIBBON_TASKS_MODULE_DIR/task_scripts/biopython/calculate_distance.py {pdb_file} {atom1} {atom2} --output_file {output_file}",
+        "requirements": "None"
+    },
+    "Calculate Pairwise Distance": {
+        "name": "Calculate Pairwise",
+        "description": "Calculate the distance between two atoms in a PDB file.",
+        "container": "BioPython",
+        "command": "python3 $RIBBON_TASKS_MODULE_DIR/task_scripts/biopython/calculate_pairwise_distances.py {pdb_file} --groupA {atom_group_A} --groupB {atom_group_B} {output_file}",
         "requirements": "None"
     },
     "Calculate SASA": {
@@ -56,6 +63,20 @@
         "description": "Calculate the angle between two planes in a PDB file.",
         "container": "BioPython",
         "command": "python3 $RIBBON_TASKS_MODULE_DIR/task_scripts/biopython/calculate_plane_angle.py {pdb_file} {atom_1} {atom_2} {atom_3} {atom_4} {atom_5} {atom_6} --output_file {output_file}",
+        "requirements": "None"
+    },
+    "Add Hydrogens": {
+        "name": "Add Hydrogens",
+        "description": "Add hydrogens to a PDB file using PyMol.",
+        "container": "PyMol",
+        "command": "python3 $RIBBON_TASKS_MODULE_DIR/task_scripts/pymol/add_h.py {input_file} --save {output_file} --sel \"{selection}\"",
+        "requirements": "None"
+    },
+    "EasyMD": {
+        "name": "EasyMD",
+        "description": "Prepare and run an MD simulation with EasyMD",
+        "container": "EasyMD",
+        "command": "easymd run {input_file} --output {output_prefix} --duration {duration} --relax-duration {relax_duration} --output-frequency {output_frequency} {ligand_files} {forcefield_files} --water-model {water_model} --ph {pH} {hydrogen_variants} --ionic-strength {ionic_strength} --box-padding {box_padding} {custom_bonds} {custom_angles} {custom_torsions} {minimize_only} {extra_args}", 
         "requirements": "None"
     }
 }

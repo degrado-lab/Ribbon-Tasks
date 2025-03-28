@@ -5,5 +5,7 @@
     "Chai-1":     ["chai-1_0.5.2.sif", "oras://docker.io/nicholasfreitas/chai-1:0.5.2"],
     "Ribbon":     ["ribbon_0.2.2.sif", "oras://docker.io/nicholasfreitas/ribbon:0.2.2"],
     "RaptorXSingle": ["raptorx-single_25.3.1.sif", "oras://docker.io/nicholasfreitas/raptorx-single:25.3.1"],
-    "RFDiffusionAA": ["rfdiffusionaa_25.3.2.sif", "oras://docker.io/nicholasfreitas/rfdiffusionaa:25.3.2"]
+    "RFDiffusionAA": ["rfdiffusionaa_25.3.2.sif", "oras://docker.io/nicholasfreitas/rfdiffusionaa:25.3.2"],
+    "PyMol": ["pymol_2.3.0.sif", "oras://docker.io/nicholasfreitas/pymol:2.3.0"],
+    "EasyMD": ["easymd_3.1.1A.sif", "oras://docker.io/nicholasfreitas/easymd:3.1.1A"]
 }

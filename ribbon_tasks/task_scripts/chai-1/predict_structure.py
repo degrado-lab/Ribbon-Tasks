@@ -26,6 +26,11 @@ def make_chai_fasta(input_fasta, output_fasta, smiles, num_ligands=1):
             if line.startswith(">"):
                 # Modify header lines
                 name = line.strip().replace(">", "")
+                # Split by spaces to get the first word:
+                name = name.split()[0]
+                # Remove all special characters
+                name = ''.join(e for e in name if e.isalnum())
+                # Write the new header line
                 outfile.write(f">protein|name={name}\n")
             else:
                 # Write the sequence lines as is
