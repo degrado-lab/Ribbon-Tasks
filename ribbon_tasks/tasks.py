@@ -38,7 +38,8 @@ class LigandMPNN(Task):
         self.num_designs = num_designs
 
     def run(self):
-        
+        """ Run a Task. """
+
         ###### HELPER FUNCTIONS #######
         def split_ligandmpnn_fasta(fasta_file, split_output_dir):
             # Each LigandMPNN input produces a FASTA with multiple outputs as > lines. Each line has 1 or more chains separated by ':'.
@@ -123,6 +124,7 @@ class FastRelax(Task):
         self.device = device
 
     def run(self):
+        """ Run a Task. """
         # Handle input files
         if self.pdb_input_file is not None:
             temp_dir = tempfile.mkdtemp()
@@ -169,6 +171,7 @@ class Chai1(Task):
         self.num_ligands = num_ligands
 
     def run(self):
+        """ Run a Task. """
         # Make the directory:
         self.output_dir = make_directory(self.output_dir)
 
@@ -235,6 +238,7 @@ class RaptorXSingle(Task):
             raise ValueError(f'Invalid param: {param}. Must be one of {valid_param_list}')
 
     def run(self):
+        """ Run a Task. """
         # Make the directory:
         self.output_dir = make_directory(self.output_dir)
         
@@ -279,6 +283,7 @@ class CalculateDistance(Task):
         self.device = device
 
     def run(self):
+        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -331,6 +336,7 @@ class CalculatePairwiseDistance(Task):
         self.device = device
 
     def run(self):
+        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -381,6 +387,7 @@ class AddHydrogens(Task):
         self.device = 'cpu'
 
     def run(self):
+        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -423,6 +430,7 @@ class CalculateSASA(Task):
         self.device = device
 
     def run(self):
+        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -478,7 +486,8 @@ class RFDiffusionAA(Task):
         # we should have a final length flag for config.length
 
     def run(self):
-        
+        """ Run a Task. """
+
         # Make directories:
         self.output_dir = make_directory(self.output_dir)
 
@@ -567,7 +576,8 @@ class EasyMD(Task):
         self.device = device
 
     def run(self):
-        
+        """ Run a Task. """
+
         # Make directories:
         Path(self.output_prefix).parent.mkdir(parents=True, exist_ok=True)
         
@@ -618,7 +628,8 @@ class Custom(Task):
         self.device = device
 
     def run(self):
-
+        """ Run a Task. """
+        
         # Run the task
         self._run_task(
             self.task_name,

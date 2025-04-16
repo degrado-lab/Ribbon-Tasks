@@ -1,0 +1,36 @@
+site_name: Ribbon-Tasks
+theme:
+  name: readthedocs
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.highlight
+    - content.code.annotate
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            show_source: true
+            show_if_no_docstring: false
+            docstring_style: google
+            allow_inspection: true
+
+extra_css: 
+- css/custom.css
+
+nav:
+  - Home: index.md
+  - Cookbook: cookbook.md
+  - Customizing your Tasks: customizing_tasks.md
+  - API Reference:
+      - Ribbon Tasks: api/ribbon_tasks.md
+  - Under the Hood:
+    - Task Definitions: design.md
+    - Contributing: contribute.md
+
+
+markdown_extensions:
+  - admonition
+
