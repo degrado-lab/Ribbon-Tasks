@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <link rel="shortcut icon" href="../img/favicon.ico" />
+    <title>Task Definitions - Ribbon-Tasks</title>
+    <link rel="stylesheet" href="../css/theme.css" />
+    <link rel="stylesheet" href="../css/theme_extra.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" />
+        <link href="../assets/_mkdocstrings.css" rel="stylesheet" />
+        <link href="../css/custom.css" rel="stylesheet" />
+    
+      <script>
+        // Current page data
+        var mkdocs_page_name = "Task Definitions";
+        var mkdocs_page_input_path = "design.md";
+        var mkdocs_page_url = null;
+      </script>
+    
+    <!--[if lt IE 9]>
+      <script src="../js/html5shiv.min.js"></script>
+    <![endif]-->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+      <script>hljs.highlightAll();</script> 
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+          <a href=".." class="icon icon-home"> Ribbon-Tasks
+        </a><div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../search.html" method="get">
+      <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="..">Home</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../cookbook/">Cookbook</a>
+                </li>
+              </ul>
+              <ul>
+                <li class="toctree-l1"><a class="reference internal" href="../customizing_tasks/">Customizing your Tasks</a>
+                </li>
+              </ul>
+              <p class="caption"><span class="caption-text">API Reference</span></p>
+              <ul>
+                  <li class="toctree-l1"><a class="reference internal" href="../api/ribbon_tasks/">Ribbon Tasks</a>
+                  </li>
+              </ul>
+              <p class="caption"><span class="caption-text">Under the Hood</span></p>
+              <ul class="current">
+                  <li class="toctree-l1 current"><a class="reference internal current" href="#">Task Definitions</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#what-are-ribbon-tasks">What Are Ribbon Tasks?</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#structure-of-a-ribbon-task">Structure of a Ribbon Task</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#1-taskspy-writing-the-python-wrapper">1. tasks.py: Writing the Python Wrapper</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#notes-on-_run_task">Notes on _run_task()</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#2-tasksjson-defining-the-command-and-environment">2. tasks.json: Defining the Command and Environment</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#command-string">Command String</a>
+    </li>
+    <li class="toctree-l3"><a class="reference internal" href="#using-custom-scripts">Using Custom Scripts</a>
+    </li>
+        </ul>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#3-containersjson-mapping-container-names">3. containers.json: Mapping Container Names</a>
+    </li>
+    </ul>
+                  </li>
+                  <li class="toctree-l1"><a class="reference internal" href="../contribute/">Contributing</a>
+                  </li>
+              </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" role="navigation" aria-label="Mobile navigation menu">
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="..">Ribbon-Tasks</a>
+        
+      </nav>
+      <div class="wy-nav-content">
+        <div class="rst-content"><div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href=".." class="icon icon-home" aria-label="Docs"></a></li>
+          <li class="breadcrumb-item">Under the Hood</li>
+      <li class="breadcrumb-item active">Task Definitions</li>
+    <li class="wy-breadcrumbs-aside">
+    </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+            <div class="section" itemprop="articleBody">
+              
+                <h1 id="task-definitions">Task Definitions</h1>
+<h2 id="what-are-ribbon-tasks">What Are Ribbon Tasks?</h2>
+<p>Ribbon uses a companion repository called <strong>Ribbon-Tasks</strong>, which contains the <code>ribbon_tasks</code> Python module. This module defines custom <code>Task</code> objects that Ribbon can run—both locally and when queueing jobs remotely.</p>
+<p>Ribbon dynamically imports this module at runtime, allowing you to define and reuse custom tasks flexibly. To point Ribbon to your copy of the Ribbon-Tasks repo, set the <code>$RIBBON_TASKS_DIR</code> environment variable. For details, see <a href="../customizing_tasks/">Customizing Your Tasks</a>.</p>
+<hr />
+<h2 id="structure-of-a-ribbon-task">Structure of a Ribbon Task</h2>
+<p>A Ribbon Task is defined by three components in the <code>ribbon_tasks</code> module:</p>
+<ol>
+<li><strong><code>tasks.py</code></strong> — Python wrapper for each Task</li>
+<li><strong><code>tasks.json</code></strong> — Defines the shell command and container to use for each Task</li>
+<li><strong><code>containers.json</code></strong> — Maps container names to their local filenames and remote sources</li>
+</ol>
+<p>Let’s walk through each component.</p>
+<hr />
+<h2 id="1-taskspy-writing-the-python-wrapper">1. <code>tasks.py</code>: Writing the Python Wrapper</h2>
+<p>Each Task is defined as a class that inherits from <code>Task</code>. The class must:</p>
+<ul>
+<li>Define <code>__init__()</code> to accept user inputs</li>
+<li>Set the <code>task_name</code> to match its entry in <code>tasks.json</code></li>
+<li>Call <code>super().__init__()</code> to initialize the base <code>Task</code> class</li>
+<li>Store user inputs as instance variables</li>
+<li>Implement a <code>run()</code> method that calls <code>_run_task()</code> with named arguments</li>
+</ul>
+<p>Here's an example for the <code>Chai-1</code> Task:</p>
+<details>
+<summary>Example: Chai-1 Task Class</summary>
+
+
+<pre><code class="language-python">class Chai1(Task):
+    def __init__(self, fasta_file, output_dir='.', smiles_string=None, num_ligands=1, device='gpu'):
+        super().__init__()
+        self.task_name = &quot;Chai-1&quot;
+        self.fasta_file = fasta_file
+        self.output_dir = output_dir
+        self.smiles_string = smiles_string
+        self.num_ligands = num_ligands
+        self.device = device
+
+    def run(self):
+        self.output_dir = make_directory(self.output_dir)
+        self._run_task(
+            self.task_name,
+            fasta_file=self.fasta_file,
+            smiles_string=self.smiles_string,
+            output_dir=str(self.output_dir),
+            num_ligands=self.num_ligands,
+            device=self.device
+        )
+</code></pre>
+
+
+</details>
+
+<h3 id="notes-on-_run_task">Notes on <code>_run_task()</code></h3>
+<ul>
+<li>This method executes the actual job by filling in the command template from <code>tasks.json</code> using the provided arguments.</li>
+<li>Only variables defined in <code>tasks.json</code> can be passed into <code>_run_task()</code>.</li>
+<li>You can optionally pass an <code>extra_args</code> string for additional software-specific flags. Be cautious: this can inject arbitrary code if misused.</li>
+<li>Any lightweight pre/post-processing (like file creation or renaming) can also be handled in <code>run()</code>. For heavier logic, use a separate script and invoke it from the command string.</li>
+</ul>
+<hr />
+<h2 id="2-tasksjson-defining-the-command-and-environment">2. <code>tasks.json</code>: Defining the Command and Environment</h2>
+<p>This JSON file defines each Task’s metadata, including:</p>
+<ul>
+<li>The name and description</li>
+<li>The container to use</li>
+<li>Environment variables (if any)</li>
+<li>The shell command to run</li>
+</ul>
+<details>
+<summary>Example: Chai-1 Task Definition</summary>
+
+
+<pre><code class="language-json">&quot;Chai-1&quot;: {
+  &quot;name&quot;: &quot;Chai-1&quot;,
+  &quot;description&quot;: &quot;Run Chai-1 structure prediction on a FASTA file and SMILES.&quot;,
+  &quot;container&quot;: &quot;Chai-1&quot;,
+  &quot;command&quot;: &quot;python $RIBBON_TASKS_MODULE_DIR/task_scripts/chai-1/predict_structure.py {fasta_file} \&quot;{smiles_string}\&quot; {output_dir} --num_ligands {num_ligands} {extra_args}&quot;,
+  &quot;requirements&quot;: &quot;None&quot;,
+  &quot;environment_variables&quot;: {
+    &quot;TRANSFORMERS_OFFLINE&quot;: &quot;1&quot;
+  }
+}
+</code></pre>
+
+
+</details>
+
+<h3 id="command-string">Command String</h3>
+<p>The <code>command</code> field is a string template. Curly-brace <code>{}</code> placeholders correspond to argument names passed into <code>_run_task()</code>.</p>
+<p>For example:</p>
+<pre><code class="language-python">_run_task(fasta_file=self.fasta_file, output_dir=self.output_dir)
+</code></pre>
+<p>...would fill in <code>{fasta_file}</code> and <code>{output_dir}</code> in the command string.</p>
+<h3 id="using-custom-scripts">Using Custom Scripts</h3>
+<p>Instead of calling software directly, your command can invoke a custom Python script stored under <code>task_scripts/&lt;container_name&gt;/</code>. For example:</p>
+<pre><code class="language-bash">python $RIBBON_TASKS_MODULE_DIR/task_scripts/chai-1/predict_structure.py ...
+</code></pre>
+<ul>
+<li><code>$RIBBON_TASKS_MODULE_DIR</code> is automatically set within the container to the location of the <code>ribbon_tasks</code> module (which is within the <code>Ribbon-Tasks</code> repo).</li>
+</ul>
+<p>This approach keeps your Task class clean while allowing complex logic to live in a dedicated script.</p>
+<hr />
+<h2 id="3-containersjson-mapping-container-names">3. <code>containers.json</code>: Mapping Container Names</h2>
+<p>This file maps container names to a list containing:</p>
+<ol>
+<li>The local <code>.sif</code> filename (used when the container is downloaded)</li>
+<li>The remote location (usually via ORAS / DockerHub)</li>
+</ol>
+<details>
+<summary>Example: Chai-1 Container</summary>
+
+
+<pre><code class="language-json">&quot;Chai-1&quot;: [
+  &quot;chai-1_0.5.2.sif&quot;,
+  &quot;oras://docker.io/nicholasfreitas/chai-1:0.5.2&quot;
+]
+</code></pre>
+
+
+</details>
+
+<p>We recommend versioning containers explicitly to avoid compatibility issues—don’t use <code>latest</code>. Both the remote tag and local filename should reflect the version number.</p>
+              
+            </div>
+          </div><footer>
+    <div class="rst-footer-buttons" role="navigation" aria-label="Footer Navigation">
+        <a href="../api/ribbon_tasks/" class="btn btn-neutral float-left" title="Ribbon Tasks"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+        <a href="../contribute/" class="btn btn-neutral float-right" title="Contributing">Next <span class="icon icon-circle-arrow-right"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+          
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="Versions">
+  <span class="rst-current-version" data-toggle="rst-current-version">
+    
+    
+      <span><a href="../api/ribbon_tasks/" style="color: #fcfcfc">&laquo; Previous</a></span>
+    
+    
+      <span><a href="../contribute/" style="color: #fcfcfc">Next &raquo;</a></span>
+    
+  </span>
+</div>
+    <script src="../js/jquery-3.6.0.min.js"></script>
+    <script>var base_url = "..";</script>
+    <script src="../js/theme_extra.js"></script>
+    <script src="../js/theme.js"></script>
+      <script src="../search/main.js"></script>
+    <script>
+        jQuery(function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        });
+    </script>
+
+</body>
+</html>
