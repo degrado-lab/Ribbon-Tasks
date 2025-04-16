@@ -22,7 +22,7 @@ extra_css:
 
 nav:
   - Home: index.md
-  - Cookbook: cookbook.md
+  - Ribbon: https://degrado-lab.github.io/Ribbon/
   - Customizing your Tasks: customizing_tasks.md
   - API Reference:
       - Ribbon Tasks: api/ribbon_tasks.md
