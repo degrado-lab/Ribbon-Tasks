@@ -3,9 +3,12 @@
     "Rosetta":  ["rosetta_serial-386.sif", "oras://docker.io/nicholasfreitas/rosetta:serial-386"],
     "BioPython":  ["biopython_latest.sif", "oras://docker.io/nicholasfreitas/biopython:latest"],
     "Chai-1":     ["chai-1_0.5.2.sif", "oras://docker.io/nicholasfreitas/chai-1:0.5.2"],
-    "Ribbon":     ["ribbon_0.2.2.sif", "oras://docker.io/nicholasfreitas/ribbon:0.2.2"],
+    "Boltz-2":    ["boltz_2.2.0.sif", "oras://docker.io/nicholasfreitas/boltz:2.2.0"],
+    "Ribbon":     ["ribbon_0.3.1.sif", "oras://docker.io/nicholasfreitas/ribbon:0.3.1"],
     "RaptorXSingle": ["raptorx-single_25.3.1.sif", "oras://docker.io/nicholasfreitas/raptorx-single:25.3.1"],
     "RFDiffusionAA": ["rfdiffusionaa_25.3.2.sif", "oras://docker.io/nicholasfreitas/rfdiffusionaa:25.3.2"],
     "PyMol": ["pymol_2.3.0.sif", "oras://docker.io/nicholasfreitas/pymol:2.3.0"],
-    "EasyMD": ["easymd_3.1.1A.sif", "oras://docker.io/nicholasfreitas/easymd:3.1.1A"]
+    "EasyMD": ["easymd_3.1.1A.sif", "oras://docker.io/nicholasfreitas/easymd:3.1.1A"],
+    "Reduce": ["reduce_4.15.1.sif", "oras://docker.io/nicholasfreitas/reduce:4.15.1"],
+    "LASErMPNN": ["laserMPNN_25.7.31.sif", "oras://docker.io/nicholasfreitas/lasermpnn:25.7.31"]
 }

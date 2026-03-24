@@ -5,7 +5,7 @@
 import argparse
 import sys
 from Bio import PDB
-import scipy
+#import scipy
 
 def calculate_atom_distance(pdb_file, res1_id, chain1_id, atom1_name, 
                             res2_id, chain2_id, atom2_name):
@@ -50,7 +50,9 @@ def get_residue(chain, res_id):
             if res.id[1] == int(res_id):
                 return res
         # If still not found, raise an error
-        raise KeyError(f"Residue {res_id} not found in chain {chain.id}")
+        # List all residues in the chain:
+        all_residues = [res.id for res in chain.get_residues()]
+        raise KeyError(f"Residue {res_id} not found in chain {chain.id}.")
     return residue
 
 if __name__ == "__main__":

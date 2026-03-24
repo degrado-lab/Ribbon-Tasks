@@ -1,12 +1,13 @@
 from ribbon.utils import make_directories, make_directory, list_files
 from pathlib import Path
 from ribbon.runner import Task
+from typing import List, Union, Optional, Any, Tuple
 import tempfile
 import shutil
 import json
 
 class LigandMPNN(Task):
-    def __init__(self, output_dir, structure_list, num_designs=1, device='cpu', extra_args=""):
+    def __init__(self, output_dir: Union[str, Path], structure_list : List[Union[str, Path]], num_designs: int = 1, temperature: float =0.1, device: str = 'cpu', extra_args: str = ""):
         """
         Initialize a LigandMPNN task.
 
@@ -36,10 +37,10 @@ class LigandMPNN(Task):
         self.output_dir = output_dir
         self.structure_list = structure_list
         self.num_designs = num_designs
+        self.temperature = temperature
 
     def run(self):
-        """ Run a Task. """
-
+        
         ###### HELPER FUNCTIONS #######
         def split_ligandmpnn_fasta(fasta_file, split_output_dir):
             # Each LigandMPNN input produces a FASTA with multiple outputs as > lines. Each line has 1 or more chains separated by ':'.
@@ -85,6 +86,7 @@ class LigandMPNN(Task):
                     pdb_input_json = pdb_input_json, 
                     output_dir = self.output_dir, 
                     num_designs = self.num_designs,
+                    temperature = self.temperature,
                     extra_args = self.extra_args,
                     device = self.device)
         
@@ -95,8 +97,70 @@ class LigandMPNN(Task):
         
         return 
 
+class LASErMPNN(Task):
+    def __init__(self, output_dir: Union[str, Path], structure_list: List[Union[str, Path]], num_designs: int = 1, temperature: float = 0.000001, device: str = 'cpu', fix_beta: bool = False, extra_args: str = ""):
+        """
+        Initialize a LASErMPNN task.
+
+        Args:
+            output_dir (str): The directory to save the output files.
+            structure_list (list): A list of pdb or cif files to use as input structures.
+            num_designs (int): The number of designs to generate per input structure.
+            device (str): The device to run the task on. Default is 'cpu'.
+            extra_args (str): Additional arguments for the task. Default is an empty string.
+
+        TODO: Add feature which sets selected residues to have a b-factor of 1.0, and then passes the flag --fix_beta so we can fix those residues.
+                For now, the user manually sets the b-factors in the input PDB files.
+
+        Returns:
+            None
+            Outputs the following directories:
+                output_dir:
+                    - backbones: The generated backbones
+                    - packed: The packed structures, including sidechains
+                    - sequences: The generated sequences as FASTA files. Multiple chains are separated by ':'. Each line is a different design.
+                    - seqs_split: The sequences split into separate FASTA files, one per design. Each line is a different chain.
+        """
+        # Initialize the Task class
+        super().__init__(device=device, extra_args=extra_args)
+
+        # This Task name matches the name in the tasks.json file
+        self.task_name = "LASErMPNN"
+        
+        # Your arguments here:
+        self.output_dir = output_dir
+        self.structure_list = structure_list
+        self.num_designs = num_designs
+        self.temperature = temperature
+        self.fix_beta = fix_beta
+
+    def run(self):
+        
+        ###### HELPER FUNCTIONS #######
+        
+        # Make directories:
+        self.output_dir = make_directory(self.output_dir)
+
+        # LaserMPNN expects a single input folder. We'll make a temporary folder with symlinks to our PDBs:
+        pdb_input_dir = tempfile.mkdtemp()
+        import os
+        for pdb_file in self.structure_list:
+            os.symlink(Path(pdb_file).resolve(), os.path.join(pdb_input_dir, os.path.basename(pdb_file)))
+
+        # Run the task:
+        self._run_task(self.task_name, 
+                    input_dir = str(pdb_input_dir),
+                    output_dir = self.output_dir, 
+                    designs_per_pdb = self.num_designs,
+                    extra_args = self.extra_args,
+                    temperature = self.temperature,
+                    fix_beta = "--fix_beta" if self.fix_beta else "",
+                    device = self.device)
+        
+        return 
+
 class FastRelax(Task):
-    def __init__(self, output_dir, pdb_input_file=None, pdb_input_dir=None, device='cpu'):
+    def __init__(self, output_dir: Union[str, Path], pdb_input_file: Optional[Union[str, Path]] = None, pdb_input_dir: Optional[Union[str, Path]] = None, nstructs: int = 1, device: str = 'cpu', extra_args: str = ""):
         """
         Initialize a FastRelax task.
 
@@ -121,10 +185,11 @@ class FastRelax(Task):
         self.output_dir = make_directory(output_dir)
         self.pdb_input_file = pdb_input_file
         self.pdb_input_dir = pdb_input_dir
+        self.nstructs = nstructs
         self.device = device
+        self.extra_args = extra_args
 
     def run(self):
-        """ Run a Task. """
         # Handle input files
         if self.pdb_input_file is not None:
             temp_dir = tempfile.mkdtemp()
@@ -142,11 +207,13 @@ class FastRelax(Task):
             self.task_name,
             pdb_string=pdb_string,
             output_dir=str(self.output_dir),
+            nstructs=self.nstructs,
+            extra_args=self.extra_args,
             device=self.device
         )
 
 class Chai1(Task):
-    def __init__(self, fasta_file, output_dir='.', smiles_string=None, num_ligands=1, device='gpu'):
+    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_string: Optional[str] = None, num_ligands: int = 1, device: str = 'gpu'):
         """
         Initialize a Chai-1 task.
 
@@ -171,7 +238,6 @@ class Chai1(Task):
         self.num_ligands = num_ligands
 
     def run(self):
-        """ Run a Task. """
         # Make the directory:
         self.output_dir = make_directory(self.output_dir)
 
@@ -185,8 +251,68 @@ class Chai1(Task):
             device=self.device
         )
 
+class Boltz2(Task):
+    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_list: List[str] = [], calculate_binding: bool = False, use_msa_server: bool = True, device: str = 'gpu', extra_args: str = ""):
+        """
+        Initialize a Boltz-2 task.
+
+        Args:
+            fasta_file (str): The FASTA file containing the protein sequence (no ligand).
+            output_dir (str): The directory to save the output files. Default is '.'.
+            smiles_list (list of str, optional): List of the SMILES strings of the ligands. Repeat a SMILES string to use multiple copies of the same ligand. 
+                Default is no ligands.
+            calculate_binding (bool, optional): Whether to calculate binding properties of the ligand. Only calculates for the first ligand in the list. Default is False.
+            device (str): The device to run the task on. Default is 'gpu'.
+        """
+        # Initialize the Task class
+        super().__init__()
+
+        # This Task name matches the name in the tasks.json file
+        self.task_name = "Boltz-2"
+
+        # Task-specific variables
+        self.fasta_file = fasta_file
+        self.smiles_list = smiles_list
+        self.output_dir = output_dir
+        self.device = device
+        self.calculate_binding = calculate_binding
+        self.extra_args = extra_args
+        self.use_msa_server = use_msa_server
+
+    def run(self):
+        # Make the directory:
+        self.output_dir = make_directory(self.output_dir)
+
+        # Only add smiles flag if necessary. 
+        ligand_flags = ""
+        if self.smiles_list:
+            smiles_string = "--ligand_smiles " + " ".join(f'"{smiles}"' for smiles in self.smiles_list)
+            ligand_flags += " " + smiles_string
+
+        if self.calculate_binding:
+            ligand_flags += " --calculate_binding"
+
+        if self.device == 'cpu':
+            self.extra_args += " --accelerator cpu "
+
+        if self.use_msa_server:
+            self.use_msa_server = " --use_msa_server "
+        else:
+            self.use_msa_server = " "
+
+        # Run the task
+        self._run_task(
+            self.task_name,
+            fasta_file=self.fasta_file,
+            output_dir=str(self.output_dir),
+            use_msa_server=self.use_msa_server,
+            device=self.device,
+            ligand_flags=ligand_flags,
+            extra_args=self.extra_args
+        )
+
 class RaptorXSingle(Task):
-    def __init__(self, fasta_file_or_dir, output_dir='.', param='RaptorX-Single-ESM1b.pt', device='gpu', extra_args=""):
+    def __init__(self, fasta_file_or_dir: Union[str, Path], output_dir: Union[str, Path] = '.', param: str = 'RaptorX-Single-ESM1b.pt', device: str = 'gpu', extra_args: str = ""):
         """
         Initialize a RaptorXSingle task.
 
@@ -238,7 +364,6 @@ class RaptorXSingle(Task):
             raise ValueError(f'Invalid param: {param}. Must be one of {valid_param_list}')
 
     def run(self):
-        """ Run a Task. """
         # Make the directory:
         self.output_dir = make_directory(self.output_dir)
         
@@ -256,8 +381,8 @@ class RaptorXSingle(Task):
         )
 
 class CalculateDistance(Task):
-    def __init__(self, pdb_file, atom1,
-                 atom2, output_file, device='cpu'):
+    def __init__(self, pdb_file: Union[str, Path], atom1: str,
+                 atom2: str, output_file: Union[str, Path], device: str = 'cpu'):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -283,7 +408,6 @@ class CalculateDistance(Task):
         self.device = device
 
     def run(self):
-        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -297,9 +421,100 @@ class CalculateDistance(Task):
             device=self.device
         )
 
+class CalculateAngle(Task):
+    def __init__(self, pdb_file: Union[str, Path], atom1: str,
+                 atom2: str, atom3: str, output_file: Union[str, Path], device: str = 'cpu'):
+        """
+        Initialize a CalculateAngle task.
+        This calculates the angle formed by three atoms in a PDB file.
+
+        Args:
+            pdb_file (str): Path to the PDB file.
+            atom1_name (str): Name of the first atom in the format 'Chain:Residue:Atom'.
+            atom2_name (str): Name of the second atom in the format 'Chain:Residue:Atom'.
+            atom3_name (str): Name of the third atom in the format 'Chain:Residue:Atom'.
+            output_file (str): Path to the output file. Suffixed with '.dist'.
+            device (str): The device to run the task on. Default is 'cpu'.
+        """
+        # Initialize the Task class
+        super().__init__()
+
+        # This Task name matches the name in the tasks.json file
+        self.task_name = "Calculate Angle"
+        
+        # Task-specific variables
+        self.pdb_file = pdb_file
+        self.atom1 = atom1
+        self.atom2 = atom2
+        self.atom3 = atom3
+        self.output_file = output_file
+        self.device = device
+
+    def run(self):
+        # Ensure output directory exists
+        make_directory(Path(self.output_file).parent)
+
+        # Run the task
+        self._run_task(
+            self.task_name,
+            pdb_file=self.pdb_file,
+            atom1=self.atom1,
+            atom2=self.atom2,
+            atom3=self.atom3,
+            output_file=self.output_file,
+            device=self.device
+        )
+
+class CalculateDihedral(Task):
+    def __init__(self, pdb_file: Union[str, Path], atom1: str,
+                 atom2: str, atom3: str, atom4: str, output_file: Union[str, Path], device: str = 'cpu'):
+        """
+        Initialize a CalculateDihedral task.
+        This calculates the dihedral torsion angle for four atoms in a PDB file.
+
+        Args:
+            pdb_file (str): Path to the PDB file.
+            atom1_name (str): Name of the first atom in the format 'Chain:Residue:Atom'.
+            atom2_name (str): Name of the second atom in the format 'Chain:Residue:Atom'.
+            atom3_name (str): Name of the third atom in the format 'Chain:Residue:Atom'.
+            atom4_name (str): Name of the fourth atom in the format 'Chain:Residue:Atom'.
+            output_file (str): Path to the output file. Suffixed with '.dist'.
+            device (str): The device to run the task on. Default is 'cpu'.
+        """
+        # Initialize the Task class
+        super().__init__()
+
+        # This Task name matches the name in the tasks.json file
+        self.task_name = "Calculate Dihedral"
+        
+        # Task-specific variables
+        self.pdb_file = pdb_file
+        self.atom1 = atom1
+        self.atom2 = atom2
+        self.atom3 = atom3
+        self.atom4 = atom4
+        self.output_file = output_file
+        self.device = device
+
+    def run(self):
+        # Ensure output directory exists
+        make_directory(Path(self.output_file).parent)
+        
+        # Run the task
+        self._run_task(
+            self.task_name,
+            pdb_file=self.pdb_file,
+            atom1=self.atom1,
+            atom2=self.atom2,
+            atom3=self.atom3,
+            atom4=self.atom4,
+            output_file=self.output_file,
+            device=self.device
+        )
+
 class CalculatePairwiseDistance(Task):
-    def __init__(self, pdb_file, atom_list_A,
-                 atom_list_B, output_file, average=False, device='cpu'):
+    def __init__(self, pdb_file: Union[str, Path], atom_list_A: List[str],
+                 atom_list_B: List[str], output_file: Union[str, Path], average: bool = False, device: str = 'cpu'):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -336,7 +551,6 @@ class CalculatePairwiseDistance(Task):
         self.device = device
 
     def run(self):
-        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -364,7 +578,7 @@ class CalculatePairwiseDistance(Task):
         )
 
 class AddHydrogens(Task):
-    def __init__(self, input_file, output_file, selection='all'):
+    def __init__(self, input_file: Union[str, Path], output_file: Union[str, Path], selection: str = 'all'):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -387,7 +601,6 @@ class AddHydrogens(Task):
         self.device = 'cpu'
 
     def run(self):
-        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -400,8 +613,64 @@ class AddHydrogens(Task):
             device=self.device
         )
 
+class Reduce(Task):
+    def __init__(self, pdb_input_file: Union[str, Path], pdb_output_file: Union[str, Path], flip: bool = False, custom_ligands: List[Tuple[str, Union[str, Path]]] = []):
+        """
+        Add Hydrogens to a PDB file.
+
+        Args:
+            pdb_input_file (str): Path to the input PDB file.
+            pdb_output_file (str): Path to the output PDB file.
+            flip (bool): Whether to optionally flip N/Q/H residues. Default False.
+            custom_ligands (list of tuples): List of custom ligand resnames and SDF files. (E.g. [('KP1', 'kemp1.sdf'), ...] ) Only necessary if there is a ligand which is not already in the Protein Data Bank.
+        """
+        # Initialize the Task class
+        super().__init__()
+
+        # This Task name matches the name in the tasks.json file
+        self.task_name = "Reduce"
+
+        # Verify that custom_ligands is a list of tuples:
+        if not isinstance(custom_ligands, list):
+            raise ValueError("custom_ligands must be a list of tuples.")
+        for item in custom_ligands:
+            if not isinstance(item, tuple) or len(item) != 2:
+                raise ValueError("Each item in custom_ligands must be a tuple of (resname, sdf_file).")
+
+        # Task-specific variables
+        self.pdb_input_file = pdb_input_file
+        self.pdb_output_file = pdb_output_file
+        self.custom_ligands = custom_ligands
+        self.flip = flip
+        self.device = 'cpu'
+
+    def run(self):
+        # Ensure output directory exists
+        make_directory(Path(self.pdb_output_file).parent)
+
+        # unzip resnames and sdfs:
+        custom_resnames = [name for name, _ in self.custom_ligands]
+        custom_sdfs = [sdf for _, sdf in self.custom_ligands]
+
+        # turn into a string
+        if len(custom_resnames) > 0:
+            custom_resnames = "--custom_ligand_resnames " + " ".join(custom_resnames)
+        if len(custom_sdfs) > 0:
+            custom_sdfs = "--custom_ligand_sdfs " + " ".join([str(custom_sdf) for custom_sdf in custom_sdfs])
+
+        # Run the task
+        self._run_task(
+            self.task_name,
+            input_pdb=self.pdb_input_file,
+            output_pdb=self.pdb_output_file,
+            custom_ligand_sdfs=     "" if not custom_sdfs else custom_sdfs,
+            custom_ligand_resnames= "" if not custom_resnames else custom_resnames,
+            flip="--flip" if self.flip else "",
+            device=self.device
+        )
+
 class CalculateSASA(Task):
-    def __init__(self, pdb_file, output_file, atom_1, device='cpu'):
+    def __init__(self, pdb_file: Union[str, Path], output_file: Union[str, Path], atom_1: str, device: str = 'cpu'):
         """
         Initialize a CalculateSASA task.
         This calculates the Solvent Accessible Surface Area for a set of atoms in a PDB file.
@@ -430,7 +699,6 @@ class CalculateSASA(Task):
         self.device = device
 
     def run(self):
-        """ Run a Task. """
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -444,7 +712,7 @@ class CalculateSASA(Task):
         )
 
 class RFDiffusionAA(Task):
-    def __init__(self, input_structure, output_dir, contig_map, num_designs=1, total_length='null', ligand='null',  diffuser_steps=200, deterministic=False, design_startnum=0, force=False, device='gpu', extra_args=""):
+    def __init__(self, input_structure: Union[str, Path], output_dir: Union[str, Path], contig_map: str, num_designs: int = 1, total_length: str = 'null', ligand: str = 'null',  diffuser_steps: int = 200, deterministic: bool = False, design_startnum: int = 0, force: bool = False, device: str = 'gpu', extra_args: str = ""):
         """
         Initialize a RFDiffusionAA task.
 
@@ -486,8 +754,7 @@ class RFDiffusionAA(Task):
         # we should have a final length flag for config.length
 
     def run(self):
-        """ Run a Task. """
-
+        
         # Make directories:
         self.output_dir = make_directory(self.output_dir)
 
@@ -511,11 +778,10 @@ class RFDiffusionAA(Task):
         
         return 
 
-
 class EasyMD(Task):
     #"command": "easymd run {input_file} --output {output_prefix} --duration {duration} --relax-duration {relax_duration} --output-frequency {output_frequency} {ligand_files} {forcefield_files} {water_model} {pH} {hydrogen_variants} {ionic_strength} {box_padding} {custom_bonds} {custom_angles} {custom_torsions} {minimize_only} {extra_args}", 
         
-    def __init__(self, input_file, output_prefix, duration, relax_duration=1, output_frequency=1, ligand_files=[], forcefield_files=['amber14-all.xml', 'amber14/tip3p.xml'], water_model='tip3p', pH=7.0, hydrogen_variants=None, ionic_strength=0.15, box_padding=1.0, custom_bonds=[], custom_angles=[], custom_torsions=[], minimize_only=False, device='gpu', extra_args=""):
+    def __init__(self, input_file: Union[str, Path], output_prefix: Union[str, Path], duration: int, relax_duration: int = 1, output_frequency: int = 1, ligand_files: List[Union[str, Path]] = [], forcefield_files: List[str] = ['amber14-all.xml', 'amber14/tip3p.xml'], water_model: str = 'tip3p', pH: float = 7.0, hydrogen_variants: Optional[List[str]] = None, ionic_strength: float = 0.15, box_padding: float = 1.0, custom_bonds: List[str] = [], custom_angles: List[str] = [], custom_torsions: List[str] = [], minimize_only: bool = False, device: str = 'gpu', extra_args: str = ""):
         """
         Initialize a RFDiffusionAA task.
 
@@ -576,8 +842,7 @@ class EasyMD(Task):
         self.device = device
 
     def run(self):
-        """ Run a Task. """
-
+        
         # Make directories:
         Path(self.output_prefix).parent.mkdir(parents=True, exist_ok=True)
         
@@ -605,7 +870,7 @@ class EasyMD(Task):
         return 
        
 class Custom(Task):
-    def __init__(self, command, container='Ribbon', device='cpu'):
+    def __init__(self, command: str, container: str = 'Ribbon', device: str = 'cpu'):
         """
         Initialize a Custom task.
         This allows the user to run a custom command in a specified container.
@@ -628,8 +893,7 @@ class Custom(Task):
         self.device = device
 
     def run(self):
-        """ Run a Task. """
-        
+
         # Run the task
         self._run_task(
             self.task_name,
