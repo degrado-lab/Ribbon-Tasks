@@ -9,7 +9,7 @@ import json
 RESOURCES_DIR = Path(__file__).parent / "resources"
 
 class LigandMPNN(Task):
-    def __init__(self, output_dir: Union[str, Path], structure_list : List[Union[str, Path]], num_designs: int = 1, temperature: float =0.1, device: str = 'cpu', extra_args: str = "", dry_run: bool = False):
+    def __init__(self, output_dir: Union[str, Path], structure_list : List[Union[str, Path]], num_designs: int = 1, temperature: float =0.1, device: str = 'cpu', model_type: Optional[str] = None, homo_oligomer: Optional[Union[int, bool]] = None, pack_side_chains: Optional[Union[int, bool]] = None, repack_everything: Optional[Union[int, bool]] = None, number_of_packs_per_design: Optional[int] = None, extra_args: str = "", dry_run: bool = False):
         """
         Initialize a LigandMPNN task.
 
@@ -18,6 +18,11 @@ class LigandMPNN(Task):
             structure_list (list): A list of pdb or cif files to use as input structures.
             num_designs (int): The number of designs to generate per input structure.
             device (str): The device to run the task on. Default is 'cpu'.
+            model_type (str, optional): The model type to use.
+            homo_oligomer (int or bool, optional): Enable homo-oligomer design.
+            pack_side_chains (int or bool, optional): Run side chain packer.
+            repack_everything (int or bool, optional): Repack all side chains.
+            number_of_packs_per_design (int, optional): Number of side chain packing samples.
             extra_args (str): Additional arguments for the task. Default is an empty string.
 
         Returns:
@@ -39,6 +44,11 @@ class LigandMPNN(Task):
         self.structure_list = structure_list
         self.num_designs = num_designs
         self.temperature = temperature
+        self.model_type = model_type
+        self.homo_oligomer = homo_oligomer
+        self.pack_side_chains = pack_side_chains
+        self.repack_everything = repack_everything
+        self.number_of_packs_per_design = number_of_packs_per_design
         self.dry_run = dry_run
 
     def _run_dry(self):
@@ -120,11 +130,35 @@ class LigandMPNN(Task):
             json.dump(self.structure_list, f)
         
         # Run the task:
+        model_type_flag = f"--model_type {self.model_type}" if self.model_type is not None else ""
+        
+        homo_oligomer_val = None
+        if self.homo_oligomer is not None:
+            homo_oligomer_val = 1 if self.homo_oligomer is True else (0 if self.homo_oligomer is False else int(self.homo_oligomer))
+        homo_oligomer_flag = f"--homo_oligomer {homo_oligomer_val}" if homo_oligomer_val is not None else ""
+
+        pack_side_chains_val = None
+        if self.pack_side_chains is not None:
+            pack_side_chains_val = 1 if self.pack_side_chains is True else (0 if self.pack_side_chains is False else int(self.pack_side_chains))
+        pack_side_chains_flag = f"--pack_side_chains {pack_side_chains_val}" if pack_side_chains_val is not None else ""
+
+        repack_everything_val = None
+        if self.repack_everything is not None:
+            repack_everything_val = 1 if self.repack_everything is True else (0 if self.repack_everything is False else int(self.repack_everything))
+        repack_everything_flag = f"--repack_everything {repack_everything_val}" if repack_everything_val is not None else ""
+
+        number_of_packs_per_design_flag = f"--number_of_packs_per_design {self.number_of_packs_per_design}" if self.number_of_packs_per_design is not None else ""
+
         self._run_task(self.task_name, 
                     pdb_input_json = pdb_input_json, 
                     output_dir = self.output_dir, 
                     num_designs = self.num_designs,
                     temperature = self.temperature,
+                    model_type_flag = model_type_flag,
+                    homo_oligomer_flag = homo_oligomer_flag,
+                    pack_side_chains_flag = pack_side_chains_flag,
+                    repack_everything_flag = repack_everything_flag,
+                    number_of_packs_per_design_flag = number_of_packs_per_design_flag,
                     extra_args = self.extra_args,
                     device = self.device)
         
