@@ -47,3 +47,30 @@ def test_task_smoke(case, tmp_path, request):
         signal.alarm(0)
 
     run_validations(case["validations"], out_dir, expected_dir)
+
+
+@pytest.mark.smoke
+@pytest.mark.parametrize("case", SMOKE_CASES, ids=[case["name"] for case in SMOKE_CASES])
+def test_task_dry_run(case, tmp_path):
+    pytest.importorskip("ribbon")
+    task_mod = pytest.importorskip("ribbon_tasks.tasks")
+
+    case_dir = case["case_dir"]
+    expected_dir = case_dir / "expected"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    task_class = getattr(task_mod, case["class_name"])
+    kwargs = case["kwargs_builder"](case_dir, out_dir)
+    kwargs["dry_run"] = True
+    
+    try:
+        task = task_class(**kwargs)
+    except NotImplementedError:
+        if case.get("expect_not_implemented", False):
+            pytest.skip("Task not yet implemented as expected.")
+        raise
+
+    task.run()
+
+    run_validations(case["validations"], out_dir, expected_dir)
