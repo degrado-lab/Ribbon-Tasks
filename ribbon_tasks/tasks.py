@@ -6,8 +6,10 @@ import tempfile
 import shutil
 import json
 
+RESOURCES_DIR = Path(__file__).parent / "resources"
+
 class LigandMPNN(Task):
-    def __init__(self, output_dir: Union[str, Path], structure_list : List[Union[str, Path]], num_designs: int = 1, temperature: float =0.1, device: str = 'cpu', extra_args: str = ""):
+    def __init__(self, output_dir: Union[str, Path], structure_list : List[Union[str, Path]], num_designs: int = 1, temperature: float =0.1, device: str = 'cpu', extra_args: str = "", dry_run: bool = False):
         """
         Initialize a LigandMPNN task.
 
@@ -37,8 +39,45 @@ class LigandMPNN(Task):
         self.structure_list = structure_list
         self.num_designs = num_designs
         self.temperature = temperature
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        seqs_dir = self.output_dir / 'seqs'
+        seqs_dir.mkdir(parents=True, exist_ok=True)
+        
+        for pdb_path in self.structure_list:
+            pdb_stem = Path(pdb_path).stem
+            fasta_path = seqs_dir / f"{pdb_stem}.fasta"
+            with open(fasta_path, 'w') as f:
+                f.write(">original\nAAAAA\n")
+                for i in range(self.num_designs):
+                    f.write(f">design_{i}, score=0.1, temp=0.1\nAAAAA\n")
+        
+        split_dir = self.output_dir / 'seqs_split'
+        split_dir.mkdir(parents=True, exist_ok=True)
+        for fasta_file in seqs_dir.iterdir():
+            with open(fasta_file) as f:
+                lines = f.readlines()[2:]
+                for i in range(0, len(lines), 2):
+                    if not lines[i].startswith('>'):
+                        continue
+                    name = lines[i].strip()
+                    chains = lines[i + 1].strip().split(':')
+                    index = 0
+                    output_path = split_dir / f'{fasta_file.stem}_{index}.fasta'
+                    while output_path.exists():
+                        index += 1
+                        output_path = split_dir / f'{fasta_file.stem}_{index}.fasta'
+                    with open(output_path, 'w') as g:
+                        for chain_index, chain in enumerate(chains):
+                            name_with_chain = f"{name.split(',')[0]}_{chain_index}" + ', ' + ','.join(name.split(',')[1:])
+                            g.write(f'{name_with_chain}\n{chain}\n')
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
         
         ###### HELPER FUNCTIONS #######
         def split_ligandmpnn_fasta(fasta_file, split_output_dir):
@@ -97,7 +136,7 @@ class LigandMPNN(Task):
         return 
 
 class LASErMPNN(Task):
-    def __init__(self, output_dir: Union[str, Path], structure_list: List[Union[str, Path]], num_designs: int = 1, temperature: float = 0.000001, device: str = 'cpu', fix_beta: bool = False, extra_args: str = ""):
+    def __init__(self, output_dir: Union[str, Path], structure_list: List[Union[str, Path]], num_designs: int = 1, temperature: float = 0.000001, device: str = 'cpu', fix_beta: bool = False, extra_args: str = "", dry_run: bool = False):
         """
         Initialize a LASErMPNN task.
 
@@ -129,8 +168,22 @@ class LASErMPNN(Task):
         self.num_designs = num_designs
         self.temperature = temperature
         self.fix_beta = fix_beta
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        import shutil
+        for pdb_file in self.structure_list:
+            pdb_stem = Path(pdb_file).stem
+            pdb_out_dir = self.output_dir / pdb_stem
+            pdb_out_dir.mkdir(parents=True, exist_ok=True)
+            for i in range(self.num_designs):
+                shutil.copy(pdb_file, pdb_out_dir / f"design_{i}.pdb")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
         
         ###### HELPER FUNCTIONS #######
         
@@ -156,7 +209,7 @@ class LASErMPNN(Task):
         return 
 
 class FastRelax(Task):
-    def __init__(self, output_dir: Union[str, Path], pdb_input_file: Optional[Union[str, Path]] = None, pdb_input_dir: Optional[Union[str, Path]] = None, nstructs: int = 1, ligand_params_file: Optional[Union[str, Path, List[Union[str, Path]]]] = None, custom_bonds: Optional[List[str]] = None, custom_angles: Optional[List[str]] = None, custom_torsions: Optional[List[str]] = None, constraints_weight: Optional[float] = None, device: str = 'cpu', extra_args: str = ""):
+    def __init__(self, output_dir: Union[str, Path], pdb_input_file: Optional[Union[str, Path]] = None, pdb_input_dir: Optional[Union[str, Path]] = None, nstructs: int = 1, ligand_params_file: Optional[Union[str, Path, List[Union[str, Path]]]] = None, custom_bonds: Optional[List[str]] = None, custom_angles: Optional[List[str]] = None, custom_torsions: Optional[List[str]] = None, constraints_weight: Optional[float] = None, device: str = 'cpu', extra_args: str = "", dry_run: bool = False):
         """
         Initialize a FastRelax task.
 
@@ -216,6 +269,7 @@ class FastRelax(Task):
         self.constraints_weight = constraints_weight
         self.device = device
         self.extra_args = extra_args
+        self.dry_run = dry_run
 
     def _parse_atom_selector(self, atom_str: str) -> str:
         """
@@ -284,7 +338,31 @@ class FastRelax(Task):
         cst_file.write_text("\n".join(cst_lines) + "\n")
         return cst_file
 
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        if self.pdb_input_file is not None:
+            pdb_list = [Path(self.pdb_input_file)]
+        else:
+            pdb_list = list_files(self.pdb_input_dir, '.pdb')
+        
+        import shutil
+        for pdb_path in pdb_list:
+            pdb_stem = Path(pdb_path).stem
+            for i in range(1, self.nstructs + 1):
+                shutil.copy(pdb_path, self.output_dir / f"{pdb_stem}_{i:04d}.pdb")
+        
+        with open(self.output_dir / "score.sc", "w") as f:
+            f.write("SEQUENCE:\nSCORE:     score description\n")
+            for pdb_path in pdb_list:
+                pdb_stem = Path(pdb_path).stem
+                for i in range(1, self.nstructs + 1):
+                    f.write(f"SCORE:     -100.0 {pdb_stem}_{i:04d}\n")
+
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Handle input files
         if self.pdb_input_file is not None:
             temp_dir = tempfile.mkdtemp()
@@ -341,7 +419,7 @@ class FastRelax(Task):
         )
 
 class Chai1(Task):
-    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_string: Optional[str] = None, num_ligands: int = 1, device: str = 'gpu'):
+    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_string: Optional[str] = None, num_ligands: int = 1, device: str = 'gpu', dry_run: bool = False):
         """
         Initialize a Chai-1 task.
 
@@ -370,8 +448,25 @@ class Chai1(Task):
         self.output_dir = output_dir
         self.device = device
         self.num_ligands = num_ligands
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        fasta_stem = Path(self.fasta_file).stem
+        
+        cif_path = self.output_dir / f"{fasta_stem}_idx_0.cif"
+        shutil.copy(RESOURCES_DIR / "dummy.cif", cif_path)
+        
+        npz_path = self.output_dir / f"{fasta_stem}_idx_0.npz"
+        import zipfile
+        with zipfile.ZipFile(npz_path, "w") as z:
+            z.writestr("dummy.npy", b"")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Make the directory:
         self.output_dir = make_directory(self.output_dir)
 
@@ -386,7 +481,7 @@ class Chai1(Task):
         )
 
 class Boltz2(Task):
-    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_list: List[str] = [], calculate_binding: bool = False, use_msa_server: bool = True, device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_list: List[str] = [], calculate_binding: bool = False, use_msa_server: bool = True, device: str = 'gpu', extra_args: str = "", dry_run: bool = False):
         """
         Initialize a Boltz-2 task.
 
@@ -419,8 +514,27 @@ class Boltz2(Task):
         self.calculate_binding = calculate_binding
         self.extra_args = extra_args
         self.use_msa_server = use_msa_server
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        fasta_stem = Path(self.fasta_file).stem
+        
+        pred_dir = self.output_dir / f"boltz_results_{fasta_stem}" / "predictions" / fasta_stem
+        pred_dir.mkdir(parents=True, exist_ok=True)
+        
+        cif_path = pred_dir / f"{fasta_stem}_model_0.cif"
+        shutil.copy(RESOURCES_DIR / "dummy.cif", cif_path)
+        
+        json_path = pred_dir / f"confidence_{fasta_stem}_model_0.json"
+        with open(json_path, "w") as f:
+            json.dump({"plddt": [90.0], "ptm": 0.8, "iptm": 0.7}, f)
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Make the directory:
         self.output_dir = make_directory(self.output_dir)
 
@@ -453,7 +567,7 @@ class Boltz2(Task):
         )
 
 class RaptorXSingle(Task):
-    def __init__(self, fasta_file_or_dir: Union[str, Path], output_dir: Union[str, Path] = '.', param: str = 'RaptorX-Single-ESM1b.pt', device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, fasta_file_or_dir: Union[str, Path], output_dir: Union[str, Path] = '.', param: str = 'RaptorX-Single-ESM1b.pt', device: str = 'gpu', extra_args: str = "", dry_run: bool = False):
         """
         Initialize a RaptorXSingle task.
 
@@ -485,6 +599,7 @@ class RaptorXSingle(Task):
         self.param = 'RaptorX-Single/params/'+param  #This is the directory where the params are stored
         self.extra_args = extra_args
         self.device = device
+        self.dry_run = dry_run
 
         if device == 'gpu':
             self.device_id = '0'
@@ -509,7 +624,18 @@ class RaptorXSingle(Task):
         if param not in valid_param_list:
             raise ValueError(f'Invalid param: {param}. Must be one of {valid_param_list}')
 
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        fasta_stem = Path(self.fasta_file).stem
+        
+        pdb_path = self.output_dir / f"{fasta_stem}.pdb"
+        shutil.copy(RESOURCES_DIR / "dummy.pdb", pdb_path)
+
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Make the directory:
         self.output_dir = make_directory(self.output_dir)
         
@@ -528,7 +654,7 @@ class RaptorXSingle(Task):
 
 class CalculateDistance(Task):
     def __init__(self, pdb_file: Union[str, Path], atom1: str,
-                 atom2: str, output_file: Union[str, Path], device: str = 'cpu'):
+                 atom2: str, output_file: Union[str, Path], device: str = 'cpu', dry_run: bool = False):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -557,8 +683,18 @@ class CalculateDistance(Task):
         self.atom2 = atom2
         self.output_file = output_file
         self.device = device
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        make_directory(Path(self.output_file).parent)
+        with open(self.output_file, 'w') as f:
+            f.write("5.0\n")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -574,7 +710,7 @@ class CalculateDistance(Task):
 
 class CalculateAngle(Task):
     def __init__(self, pdb_file: Union[str, Path], atom1: str,
-                 atom2: str, atom3: str, output_file: Union[str, Path], device: str = 'cpu'):
+                 atom2: str, atom3: str, output_file: Union[str, Path], device: str = 'cpu', dry_run: bool = False):
         """
         Initialize a CalculateAngle task.
         This calculates the angle formed by three atoms in a PDB file.
@@ -605,8 +741,18 @@ class CalculateAngle(Task):
         self.atom3 = atom3
         self.output_file = output_file
         self.device = device
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        make_directory(Path(self.output_file).parent)
+        with open(self.output_file, 'w') as f:
+            f.write("109.5\n")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -623,7 +769,7 @@ class CalculateAngle(Task):
 
 class CalculateDihedral(Task):
     def __init__(self, pdb_file: Union[str, Path], atom1: str,
-                 atom2: str, atom3: str, atom4: str, output_file: Union[str, Path], device: str = 'cpu'):
+                 atom2: str, atom3: str, atom4: str, output_file: Union[str, Path], device: str = 'cpu', dry_run: bool = False):
         """
         Initialize a CalculateDihedral task.
         This calculates the dihedral torsion angle for four atoms in a PDB file.
@@ -656,8 +802,18 @@ class CalculateDihedral(Task):
         self.atom4 = atom4
         self.output_file = output_file
         self.device = device
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        make_directory(Path(self.output_file).parent)
+        with open(self.output_file, 'w') as f:
+            f.write("180.0\n")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
         
@@ -675,7 +831,7 @@ class CalculateDihedral(Task):
 
 class CalculatePairwiseDistance(Task):
     def __init__(self, pdb_file: Union[str, Path], atom_list_A: List[str],
-                 atom_list_B: List[str], output_file: Union[str, Path], average: bool = False, device: str = 'cpu'):
+                 atom_list_B: List[str], output_file: Union[str, Path], average: bool = False, device: str = 'cpu', dry_run: bool = False):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -690,14 +846,6 @@ class CalculatePairwiseDistance(Task):
             average (bool): Whether to return the average distance. Default is False.
                 If True, the output file will contain a single value (no other information).
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - output_file: CSV or JSON file containing pairwise distances
-                    - CSV format: columns "A_index", "AtomA", "B_index", "AtomB", "Distance"
-                    - JSON format: list of dicts with keys "A_index", "A_spec", "B_index", "B_spec", "distance"
-                    - If average=True, contains a single average distance value.
         """
         # Initialize the Task class
         super().__init__()
@@ -718,8 +866,25 @@ class CalculatePairwiseDistance(Task):
         self.output_file = output_file
         self.average = average
         self.device = device
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        make_directory(Path(self.output_file).parent)
+        if self.average:
+            with open(self.output_file, 'w') as f:
+                f.write("5.0\n")
+        elif Path(self.output_file).suffix == '.csv':
+            with open(self.output_file, 'w') as f:
+                f.write("A_index,AtomA,B_index,AtomB,Distance\n1,A:1:CA,2,A:2:CA,5.0\n")
+        else: #json
+            with open(self.output_file, 'w') as f:
+                json.dump([{"A_index": 1, "A_spec": "A:1:CA", "B_index": 2, "B_spec": "A:2:CA", "distance": 5.0}], f)
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -747,7 +912,7 @@ class CalculatePairwiseDistance(Task):
         )
 
 class AddHydrogens(Task):
-    def __init__(self, input_file: Union[str, Path], output_file: Union[str, Path], selection: str = 'all'):
+    def __init__(self, input_file: Union[str, Path], output_file: Union[str, Path], selection: str = 'all', dry_run: bool = False):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -773,8 +938,18 @@ class AddHydrogens(Task):
         self.selection = selection
         self.output_file = output_file
         self.device = 'cpu'
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        make_directory(Path(self.output_file).parent)
+        import shutil
+        shutil.copy(self.input_file, self.output_file)
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Ensure output directory exists
         make_directory(Path(self.output_file).parent)
 
@@ -788,7 +963,7 @@ class AddHydrogens(Task):
         )
 
 class Reduce(Task):
-    def __init__(self, pdb_input_file: Union[str, Path], pdb_output_file: Union[str, Path], flip: bool = False, custom_ligands: List[Tuple[str, Union[str, Path]]] = []):
+    def __init__(self, pdb_input_file: Union[str, Path], pdb_output_file: Union[str, Path], flip: bool = False, custom_ligands: List[Tuple[str, Union[str, Path]]] = [], dry_run: bool = False):
         """
         Add Hydrogens to a PDB file.
 
@@ -822,8 +997,18 @@ class Reduce(Task):
         self.custom_ligands = custom_ligands
         self.flip = flip
         self.device = 'cpu'
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        make_directory(Path(self.pdb_output_file).parent)
+        import shutil
+        shutil.copy(self.pdb_input_file, self.pdb_output_file)
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         # Ensure output directory exists
         make_directory(Path(self.pdb_output_file).parent)
 
@@ -849,7 +1034,7 @@ class Reduce(Task):
         )
 
 class CalculateSASA(Task):
-    def __init__(self, pdb_file: Union[str, Path], output_file: Union[str, Path], atom_1: str, device: str = 'cpu'):
+    def __init__(self, pdb_file: Union[str, Path], output_file: Union[str, Path], atom_1: str, device: str = 'cpu', dry_run: bool = False):
         """
         Initialize a CalculateSASA task.
         This calculates the Solvent Accessible Surface Area for a set of atoms in a PDB file.
@@ -869,6 +1054,7 @@ class CalculateSASA(Task):
             - Implement the task script in ribbon/ribbon_tasks/task_scripts/calculate_sasa.py
         """
 
+        self.dry_run = dry_run
         raise NotImplementedError('This task is not yet implemented .')
         # Initialize the Task class
         super().__init__()
@@ -896,7 +1082,7 @@ class CalculateSASA(Task):
         )
 
 class RFDiffusionAA(Task):
-    def __init__(self, input_structure: Union[str, Path], output_dir: Union[str, Path], contig_map: str, num_designs: int = 1, total_length: str = 'null', ligand: str = 'null',  diffuser_steps: int = 200, deterministic: bool = False, design_startnum: int = 0, force: bool = False, device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, input_structure: Union[str, Path], output_dir: Union[str, Path], contig_map: str, num_designs: int = 1, total_length: str = 'null', ligand: str = 'null',  diffuser_steps: int = 200, deterministic: bool = False, design_startnum: int = 0, force: bool = False, device: str = 'gpu', extra_args: str = "", dry_run: bool = False):
         """
         Initialize a RFDiffusionAA task.
 
@@ -937,9 +1123,21 @@ class RFDiffusionAA(Task):
         self.deterministic = deterministic
         self.design_startnum = design_startnum
         self.force = force
+        self.dry_run = dry_run
         # we should have a final length flag for config.length
 
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        import shutil
+        for i in range(self.num_designs):
+            shutil.copy(self.input_structure, self.output_dir / f"design_{i}.pdb")
+            with open(self.output_dir / f"design_{i}.trb", "w") as f:
+                f.write("")
+
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
         
         # Make directories:
         self.output_dir = make_directory(self.output_dir)
@@ -967,7 +1165,7 @@ class RFDiffusionAA(Task):
 class EasyMD(Task):
     #"command": "easymd run {input_file} --output {output_prefix} --duration {duration} --relax-duration {relax_duration} --output-frequency {output_frequency} {ligand_files} {forcefield_files} {water_model} {pH} {hydrogen_variants} {ionic_strength} {box_padding} {custom_bonds} {custom_angles} {custom_torsions} {minimize_only} {extra_args}", 
         
-    def __init__(self, input_file: Union[str, Path], output_prefix: Union[str, Path], duration: int, relax_duration: int = 1, output_frequency: int = 1, ligand_files: List[Union[str, Path]] = [], forcefield_files: List[str] = ['amber14-all.xml', 'amber14/tip3p.xml'], water_model: str = 'tip3p', pH: float = 7.0, hydrogen_variants: Optional[List[str]] = None, ionic_strength: float = 0.15, box_padding: float = 1.0, custom_bonds: List[str] = [], custom_angles: List[str] = [], custom_torsions: List[str] = [], minimize_only: bool = False, device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, input_file: Union[str, Path], output_prefix: Union[str, Path], duration: int, relax_duration: int = 1, output_frequency: int = 1, ligand_files: List[Union[str, Path]] = [], forcefield_files: List[str] = ['amber14-all.xml', 'amber14/tip3p.xml'], water_model: str = 'tip3p', pH: float = 7.0, hydrogen_variants: Optional[List[str]] = None, ionic_strength: float = 0.15, box_padding: float = 1.0, custom_bonds: List[str] = [], custom_angles: List[str] = [], custom_torsions: List[str] = [], minimize_only: bool = False, device: str = 'gpu', extra_args: str = "", dry_run: bool = False):
         """
         Initialize a RFDiffusionAA task.
 
@@ -1029,8 +1227,19 @@ class EasyMD(Task):
         self.custom_torsions = " ".join([f" -ct {torsion}" for torsion in custom_torsions])
         self.minimize_only = "--minimize-only" if minimize_only else ""
         self.device = device
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        Path(self.output_prefix).parent.mkdir(parents=True, exist_ok=True)
+        import shutil
+        shutil.copy(self.input_file, f"{self.output_prefix}.pdb")
+        with open(f"{self.output_prefix}.dcd", "w") as f:
+            f.write("")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
         
         # Make directories:
         Path(self.output_prefix).parent.mkdir(parents=True, exist_ok=True)
@@ -1067,7 +1276,7 @@ class RosettaLigandPrepare(Task):
                  extra_torsion_output: bool = False, keep_names: bool = False, long_names: bool = False,
                  recharge: Optional[int] = None, m_ctrl: Optional[str] = None, mm_as_virt: bool = False,
                  skip_bad_conformers: bool = False, conformers_in_one_file: bool = False,
-                 device: str = 'cpu', extra_args: str = ""):
+                 device: str = 'cpu', extra_args: str = "", dry_run: bool = False):
         """
         Initialize a RosettaLigandPrepare task.
 
@@ -1130,8 +1339,22 @@ class RosettaLigandPrepare(Task):
         self.mm_as_virt = mm_as_virt
         self.skip_bad_conformers = skip_bad_conformers
         self.conformers_in_one_file = conformers_in_one_file
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        self.output_dir = make_directory(self.output_dir)
+        name = self.name or "LG1"
+        
+        with open(self.output_dir / f"{name}.params", "w") as f:
+            f.write(f"NAME {name}\nIO_STRING {name} L\nTYPE LIGAND\n")
+            
+        shutil.copy(RESOURCES_DIR / "dummy.pdb", self.output_dir / f"{name}_0001.pdb")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
+
         import os
         # Make directories:
         self.output_dir = make_directory(self.output_dir)
@@ -1209,7 +1432,7 @@ class RosettaLigandPrepare(Task):
         return
  
 class Custom(Task):
-    def __init__(self, command: str, container: str = 'Ribbon', device: str = 'cpu'):
+    def __init__(self, command: str, container: str = 'Ribbon', device: str = 'cpu', dry_run: bool = False):
         """
         Initialize a Custom task.
         This allows the user to run a custom command in a specified container.
@@ -1219,11 +1442,6 @@ class Custom(Task):
             command (str): The command to run.
             container (str): The container to run the command in. Default is 'Ribbon'.
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - Custom files/directories depending on the custom command executed
         """
         # Initialize the Task class
         super().__init__()
@@ -1235,8 +1453,22 @@ class Custom(Task):
         self.command = command
         self.container = container
         self.device = device
+        self.dry_run = dry_run
+
+    def _run_dry(self):
+        print(f"[DRY RUN] Custom command: {self.command}")
+        import re
+        match = re.search(r">\s*(.+)$", self.command)
+        if match:
+            out_file = Path(match.group(1).strip("'\" "))
+            out_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(out_file, "w") as f:
+                f.write("done\n")
 
     def run(self):
+        if self.dry_run:
+            self._run_dry()
+            return
 
         # Run the task
         self._run_task(
