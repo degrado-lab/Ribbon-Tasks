@@ -1,13 +1,12 @@
 from ribbon.utils import make_directories, make_directory, list_files
 from pathlib import Path
 from ribbon.runner import Task
-from typing import List, Union, Optional, Any, Tuple
 import tempfile
 import shutil
 import json
 
 class LigandMPNN(Task):
-    def __init__(self, output_dir: Union[str, Path], structure_list : List[Union[str, Path]], num_designs: int = 1, temperature: float =0.1, device: str = 'cpu', extra_args: str = ""):
+    def __init__(self, output_dir: str, structure_list : list, num_designs: int = 1, temperature: float =0.1, device:str = 'cpu', extra_args: str = ""):
         """
         Initialize a LigandMPNN task.
 
@@ -20,11 +19,12 @@ class LigandMPNN(Task):
 
         Returns:
             None
-            Outputs the following directories under output_dir:
-                - backbones/: The generated backbones
-                - packed/: The packed structures, including sidechains
-                - sequences/: The generated sequences as FASTA files
-                - seqs_split/: The sequences split into separate FASTA files, one per design
+            Outputs the following directories:
+                output_dir:
+                    - backbones: The generated backbones
+                    - packed: The packed structures, including sidechains
+                    - sequences: The generated sequences as FASTA files. Multiple chains are separated by ':'. Each line is a different design.
+                    - seqs_split: The sequences split into separate FASTA files, one per design. Each line is a different chain.
         """
         # Initialize the Task class
         super().__init__(device=device, extra_args=extra_args)
@@ -97,7 +97,7 @@ class LigandMPNN(Task):
         return 
 
 class LASErMPNN(Task):
-    def __init__(self, output_dir: Union[str, Path], structure_list: List[Union[str, Path]], num_designs: int = 1, temperature: float = 0.000001, device: str = 'cpu', fix_beta: bool = False, extra_args: str = ""):
+    def __init__(self, output_dir, structure_list, num_designs=1, temperature=0.000001, device='cpu', fix_beta=False, extra_args=""):
         """
         Initialize a LASErMPNN task.
 
@@ -113,9 +113,12 @@ class LASErMPNN(Task):
 
         Returns:
             None
-            Outputs the following directories under output_dir:
-                - [input_pdb_stem]/: Directory containing designs for each input structure
-                    - design_0.pdb, design_1.pdb, ...: Generated design structures
+            Outputs the following directories:
+                output_dir:
+                    - backbones: The generated backbones
+                    - packed: The packed structures, including sidechains
+                    - sequences: The generated sequences as FASTA files. Multiple chains are separated by ':'. Each line is a different design.
+                    - seqs_split: The sequences split into separate FASTA files, one per design. Each line is a different chain.
         """
         # Initialize the Task class
         super().__init__(device=device, extra_args=extra_args)
@@ -156,7 +159,7 @@ class LASErMPNN(Task):
         return 
 
 class FastRelax(Task):
-    def __init__(self, output_dir: Union[str, Path], pdb_input_file: Optional[Union[str, Path]] = None, pdb_input_dir: Optional[Union[str, Path]] = None, nstructs: int = 1, ligand_params_file: Optional[Union[str, Path, List[Union[str, Path]]]] = None, custom_bonds: Optional[List[str]] = None, custom_angles: Optional[List[str]] = None, custom_torsions: Optional[List[str]] = None, constraints_weight: Optional[float] = None, device: str = 'cpu', extra_args: str = ""):
+    def __init__(self, output_dir, pdb_input_file=None, pdb_input_dir=None, nstructs=1, device='cpu', extra_args=""):
         """
         Initialize a FastRelax task.
 
@@ -164,37 +167,10 @@ class FastRelax(Task):
             output_dir (str): The directory to save the output files.
             pdb_input_file (str, optional): Path to a single PDB file. Default is None.
             pdb_input_dir (str, optional): Path to a directory containing PDB files. Default is None.
-            nstructs (int): The number of structures to generate. Default is 1.
-            ligand_params_file (str or list of str, optional): Path(s) to ligand .params files. Default is None.
-            custom_bonds (list of str, optional): Custom bond/distance constraints.
-                Formats:
-                  - Default (HARMONIC): "Atom1,Atom2,Target,SD"
-                    E.g. ["A:16:ND1,B:1:H1,2.0,0.5"]
-                  - Custom function and parameters: "Atom1,Atom2,FUNC_NAME,Param1,Param2,..."
-                    E.g. ["A:45:OD2,A:16:HE2,FLAT_HARMONIC,0.0,0.5,6"]
-            custom_angles (list of str, optional): Custom angle constraints.
-                Formats:
-                  - Default (HARMONIC): "Atom1,Atom2,Atom3,Target,SD"
-                    E.g. ["A:16:CE1,A:16:ND1,B:1:H1,2.41,0.5"]
-                  - Custom function and parameters: "Atom1,Atom2,Atom3,FUNC_NAME,Param1,Param2,..."
-                    E.g. ["A:1:CA,A:2:CA,A:3:CA,BOUNDED,1.0,2.0,0.1,TAG"]
-            custom_torsions (list of str, optional): Custom dihedral/torsion constraints.
-                Formats:
-                  - Default (CIRCULARHARMONIC): "Atom1,Atom2,Atom3,Atom4,Target,SD"
-                    E.g. ["A:45:OD1,A:45:CG,A:45:OD2,A:16:HE2,3.14,0.35"]
-                  - Custom function and parameters: "Atom1,Atom2,Atom3,Atom4,FUNC_NAME,Param1,Param2,..."
-            constraints_weight (float, optional): The weight for full-atom constraints. Default is None.
             device (str): The device to run the task on. Default is 'cpu'.
-            extra_args (str): Additional arguments for the task. Default is an empty string.
 
         Raises:
             ValueError: If neither pdb_input_file nor pdb_input_dir is specified.
-
-        Returns:
-            None
-            Outputs the following files under output_dir:
-                - [input_pdb_stem]_0001.pdb, etc.: The relaxed structure files
-                - score.sc: Rosetta score file containing energy terms
         """
          # Initialize the Task class
         super().__init__()
@@ -209,80 +185,8 @@ class FastRelax(Task):
         self.pdb_input_file = pdb_input_file
         self.pdb_input_dir = pdb_input_dir
         self.nstructs = nstructs
-        self.ligand_params_file = ligand_params_file
-        self.custom_bonds = custom_bonds or []
-        self.custom_angles = custom_angles or []
-        self.custom_torsions = custom_torsions or []
-        self.constraints_weight = constraints_weight
         self.device = device
         self.extra_args = extra_args
-
-    def _parse_atom_selector(self, atom_str: str) -> str:
-        """
-        Parses atom selector string in format 'Chain:Res:Atom' into Rosetta's PDB constraint format.
-        E.g. 'A:16:ND1' -> 'ND1 16A'
-        If chain is empty, it formats as pose/continuous numbering (e.g. ':16:ND1' -> 'ND1 16').
-        """
-        parts = atom_str.split(':')
-        if len(parts) != 3:
-            raise ValueError(f"Invalid atom selector: '{atom_str}'. Expected format 'Chain:Res:Atom'")
-        chain, res, atom = parts
-        return f"{atom} {res}{chain}"
-
-    def _parse_constraint(self, constraint_str: str, num_atoms: int, default_func: str) -> str:
-        """
-        Parses a generic constraint string representing biological constraints.
-        Extracts num_atoms first, and then parses the remainder as function name (optional)
-        followed by its parameters.
-        """
-        parts = [p.strip() for p in constraint_str.split(',')]
-        if len(parts) < num_atoms + 1:
-            raise ValueError(f"Invalid constraint: '{constraint_str}'. Expected at least {num_atoms} atoms and 1 parameter.")
-        
-        atoms = [self._parse_atom_selector(parts[i]) for i in range(num_atoms)]
-        remaining = parts[num_atoms:]
-        
-        try:
-            # Check if first remaining parameter can be parsed as a number
-            float(remaining[0])
-            func = default_func
-            params = remaining
-        except ValueError:
-            # First parameter is not a number, so it must be the custom function name
-            func = remaining[0]
-            params = remaining[1:]
-            if not params:
-                raise ValueError(f"Invalid constraint: '{constraint_str}'. Expected parameters after function '{func}'.")
-        
-        atoms_str = " ".join(atoms)
-        params_str = " ".join(params)
-        return f"{atoms_str} {func} {params_str}"
-
-    def _generate_constraints_file(self) -> Optional[Path]:
-        """
-        Generates and writes a Rosetta constraint file containing custom bonds, angles, and torsions.
-        Returns the Path to the written file, or None if no custom constraints were specified.
-        """
-        cst_lines = []
-
-        # Parse custom bonds
-        for bond in self.custom_bonds:
-            cst_lines.append(f"AtomPair {self._parse_constraint(bond, 2, 'HARMONIC')}")
-
-        # Parse custom angles
-        for angle in self.custom_angles:
-            cst_lines.append(f"Angle {self._parse_constraint(angle, 3, 'HARMONIC')}")
-
-        # Parse custom torsions
-        for torsion in self.custom_torsions:
-            cst_lines.append(f"Dihedral {self._parse_constraint(torsion, 4, 'CIRCULARHARMONIC')}")
-
-        if not cst_lines:
-            return None
-
-        cst_file = self.output_dir / "constraints.cst"
-        cst_file.write_text("\n".join(cst_lines) + "\n")
-        return cst_file
 
     def run(self):
         # Handle input files
@@ -297,51 +201,18 @@ class FastRelax(Task):
         pdb_list = list_files(pdb_input_dir, '.pdb')
         pdb_string = " ".join(map(str, pdb_list)) + " "
 
-        # Dynamic arguments lists
-        params_flags = []
-
-        # Generate constraints file
-        cst_file = self._generate_constraints_file()
-        if cst_file:
-            params_flags.append(f"-constraints:cst_fa_file {cst_file.resolve()}")
-
-        # Add constraints weight
-        if self.constraints_weight is not None:
-            params_flags.append(f"-constraints:cst_fa_weight {self.constraints_weight}")
-
-        # Add ligand params files
-        if self.ligand_params_file:
-            if isinstance(self.ligand_params_file, (str, Path)):
-                params_files = [self.ligand_params_file]
-            else:
-                params_files = self.ligand_params_file
-            
-            resolved_files = []
-            for pf in params_files:
-                pf_path = Path(pf).resolve()
-                if not pf_path.exists():
-                    raise FileNotFoundError(f"Ligand params file not found: {pf}")
-                resolved_files.append(str(pf_path))
-            
-            if resolved_files:
-                params_flags.append(f"-extra_res_fa {' '.join(resolved_files)}")
-
-        # Combine dynamic flags into extra_args
-        dynamic_args = " ".join(params_flags)
-        combined_extra_args = f"{dynamic_args} {self.extra_args}".strip() if self.extra_args else dynamic_args
-
         # Run the task
         self._run_task(
             self.task_name,
             pdb_string=pdb_string,
             output_dir=str(self.output_dir),
             nstructs=self.nstructs,
-            extra_args=combined_extra_args,
+            extra_args=self.extra_args,
             device=self.device
         )
 
 class Chai1(Task):
-    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_string: Optional[str] = None, num_ligands: int = 1, device: str = 'gpu'):
+    def __init__(self, fasta_file, output_dir='.', smiles_string=None, num_ligands=1, device='gpu'):
         """
         Initialize a Chai-1 task.
 
@@ -351,12 +222,6 @@ class Chai1(Task):
             smiles_string (str, optional): The SMILES string of the ligand. Default is None.
             num_ligands (int): The number of ligands. Default is 1.
             device (str): The device to run the task on. Default is 'gpu'.
-
-        Returns:
-            None
-            Outputs the following files under output_dir:
-                - [input_fasta_stem]_idx_0.cif, etc.: The predicted 3D structures in CIF format
-                - [input_fasta_stem]_idx_0.npz, etc.: Score files containing pTM, ipTM, pLDDT, etc.
         """
         # Initialize the Task class
         super().__init__()
@@ -386,7 +251,7 @@ class Chai1(Task):
         )
 
 class Boltz2(Task):
-    def __init__(self, fasta_file: Union[str, Path], output_dir: Union[str, Path] = '.', smiles_list: List[str] = [], calculate_binding: bool = False, use_msa_server: bool = True, device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, fasta_file, output_dir='.', smiles_list=[], calculate_binding=False, use_msa_server=True, device='gpu', extra_args=""):
         """
         Initialize a Boltz-2 task.
 
@@ -397,13 +262,6 @@ class Boltz2(Task):
                 Default is no ligands.
             calculate_binding (bool, optional): Whether to calculate binding properties of the ligand. Only calculates for the first ligand in the list. Default is False.
             device (str): The device to run the task on. Default is 'gpu'.
-
-        Returns:
-            None
-            Outputs the following directories/files under output_dir:
-                - boltz_results_[input_yaml_stem]/:
-                    - predictions/[input_yaml_stem]/[input_yaml_stem]_model_0.cif, etc.: Predicted structure files
-                    - predictions/[input_yaml_stem]/confidence_[input_yaml_stem]_model_0.json: Model confidences and metrics
         """
         # Initialize the Task class
         super().__init__()
@@ -453,7 +311,7 @@ class Boltz2(Task):
         )
 
 class RaptorXSingle(Task):
-    def __init__(self, fasta_file_or_dir: Union[str, Path], output_dir: Union[str, Path] = '.', param: str = 'RaptorX-Single-ESM1b.pt', device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, fasta_file_or_dir, output_dir='.', param='RaptorX-Single-ESM1b.pt', device='gpu', extra_args=""):
         """
         Initialize a RaptorXSingle task.
 
@@ -466,11 +324,6 @@ class RaptorXSingle(Task):
 
         Raises:
             ValueError: If an invalid param is specified.
-
-        Returns:
-            None
-            Outputs the following files under output_dir:
-                - [input_fasta_stem].pdb: Predicted structure files
         """
         
         # Initialize the Task class
@@ -527,8 +380,8 @@ class RaptorXSingle(Task):
         )
 
 class CalculateDistance(Task):
-    def __init__(self, pdb_file: Union[str, Path], atom1: str,
-                 atom2: str, output_file: Union[str, Path], device: str = 'cpu'):
+    def __init__(self, pdb_file, atom1,
+                 atom2, output_file, device='cpu'):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -539,11 +392,6 @@ class CalculateDistance(Task):
             atom2_name (str): Name of the second atom in the format 'Chain:Residue:Atom'.
             output_file (str): Path to the output file. Suffixed with '.dist'.
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - output_file: Text file containing the calculated distance (in Angstroms), suffixed with '.dist'
         """
         # Initialize the Task class
         super().__init__()
@@ -573,8 +421,8 @@ class CalculateDistance(Task):
         )
 
 class CalculateAngle(Task):
-    def __init__(self, pdb_file: Union[str, Path], atom1: str,
-                 atom2: str, atom3: str, output_file: Union[str, Path], device: str = 'cpu'):
+    def __init__(self, pdb_file, atom1,
+                 atom2, atom3, output_file, device='cpu'):
         """
         Initialize a CalculateAngle task.
         This calculates the angle formed by three atoms in a PDB file.
@@ -586,11 +434,6 @@ class CalculateAngle(Task):
             atom3_name (str): Name of the third atom in the format 'Chain:Residue:Atom'.
             output_file (str): Path to the output file. Suffixed with '.dist'.
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - output_file: Text file containing the calculated angle (in degrees), suffixed with '.angle'
         """
         # Initialize the Task class
         super().__init__()
@@ -622,8 +465,8 @@ class CalculateAngle(Task):
         )
 
 class CalculateDihedral(Task):
-    def __init__(self, pdb_file: Union[str, Path], atom1: str,
-                 atom2: str, atom3: str, atom4: str, output_file: Union[str, Path], device: str = 'cpu'):
+    def __init__(self, pdb_file, atom1,
+                 atom2, atom3, atom4, output_file, device='cpu'):
         """
         Initialize a CalculateDihedral task.
         This calculates the dihedral torsion angle for four atoms in a PDB file.
@@ -636,11 +479,6 @@ class CalculateDihedral(Task):
             atom4_name (str): Name of the fourth atom in the format 'Chain:Residue:Atom'.
             output_file (str): Path to the output file. Suffixed with '.dist'.
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - output_file: Text file containing the calculated dihedral torsion angle (in degrees), suffixed with '.dihedral'
         """
         # Initialize the Task class
         super().__init__()
@@ -674,8 +512,8 @@ class CalculateDihedral(Task):
         )
 
 class CalculatePairwiseDistance(Task):
-    def __init__(self, pdb_file: Union[str, Path], atom_list_A: List[str],
-                 atom_list_B: List[str], output_file: Union[str, Path], average: bool = False, device: str = 'cpu'):
+    def __init__(self, pdb_file, atom_list_A,
+                 atom_list_B, output_file, average=False, device='cpu'):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -690,14 +528,6 @@ class CalculatePairwiseDistance(Task):
             average (bool): Whether to return the average distance. Default is False.
                 If True, the output file will contain a single value (no other information).
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - output_file: CSV or JSON file containing pairwise distances
-                    - CSV format: columns "A_index", "AtomA", "B_index", "AtomB", "Distance"
-                    - JSON format: list of dicts with keys "A_index", "A_spec", "B_index", "B_spec", "distance"
-                    - If average=True, contains a single average distance value.
         """
         # Initialize the Task class
         super().__init__()
@@ -747,7 +577,7 @@ class CalculatePairwiseDistance(Task):
         )
 
 class AddHydrogens(Task):
-    def __init__(self, input_file: Union[str, Path], output_file: Union[str, Path], selection: str = 'all'):
+    def __init__(self, input_file, output_file, selection='all'):
         """
         Initialize a CalculateDistance task.
         This calculates the distance between two atoms in a PDB file.
@@ -756,11 +586,6 @@ class AddHydrogens(Task):
             input_file (str): Path to the PDB or CIF file.
             output_file (str): Path to the output file.
             selection (str): PyMol selection string to specify what to add hydrogens to. Default is 'all'.
-
-        Returns:
-            None
-            Outputs:
-                - output_file: PDB or CIF structure file containing the added hydrogens
         """
         # Initialize the Task class
         super().__init__()
@@ -788,7 +613,7 @@ class AddHydrogens(Task):
         )
 
 class Reduce(Task):
-    def __init__(self, pdb_input_file: Union[str, Path], pdb_output_file: Union[str, Path], flip: bool = False, custom_ligands: List[Tuple[str, Union[str, Path]]] = []):
+    def __init__(self, pdb_input_file, pdb_output_file, flip=False, custom_ligands=[]):
         """
         Add Hydrogens to a PDB file.
 
@@ -797,11 +622,6 @@ class Reduce(Task):
             pdb_output_file (str): Path to the output PDB file.
             flip (bool): Whether to optionally flip N/Q/H residues. Default False.
             custom_ligands (list of tuples): List of custom ligand resnames and SDF files. (E.g. [('KP1', 'kemp1.sdf'), ...] ) Only necessary if there is a ligand which is not already in the Protein Data Bank.
-
-        Returns:
-            None
-            Outputs:
-                - pdb_output_file: PDB structure file containing the added hydrogens
         """
         # Initialize the Task class
         super().__init__()
@@ -849,7 +669,7 @@ class Reduce(Task):
         )
 
 class CalculateSASA(Task):
-    def __init__(self, pdb_file: Union[str, Path], output_file: Union[str, Path], atom_1: str, device: str = 'cpu'):
+    def __init__(self, pdb_file, output_file, atom_1, device='cpu'):
         """
         Initialize a CalculateSASA task.
         This calculates the Solvent Accessible Surface Area for a set of atoms in a PDB file.
@@ -859,11 +679,6 @@ class CalculateSASA(Task):
             output_file (str): Path to the output file. Suffixed with '.angle'.
             atom_1 (str): Atom specification in format chain_id:res_id:atom_name.
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - output_file: Text file containing calculated solvent accessible surface area (SASA) values
 
         TODO:
             - Implement the task script in ribbon/ribbon_tasks/task_scripts/calculate_sasa.py
@@ -896,7 +711,7 @@ class CalculateSASA(Task):
         )
 
 class RFDiffusionAA(Task):
-    def __init__(self, input_structure: Union[str, Path], output_dir: Union[str, Path], contig_map: str, num_designs: int = 1, total_length: str = 'null', ligand: str = 'null',  diffuser_steps: int = 200, deterministic: bool = False, design_startnum: int = 0, force: bool = False, device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, input_structure, output_dir, contig_map, num_designs=1, total_length='null', ligand='null',  diffuser_steps=200, deterministic=False, design_startnum=0, force=False, device='gpu', extra_args=""):
         """
         Initialize a RFDiffusionAA task.
 
@@ -916,9 +731,7 @@ class RFDiffusionAA(Task):
 
         Returns:
             None
-            Outputs the following files under output_dir:
-                - output_dir/design_0.pdb, etc.: The generated backbone structures
-                - output_dir/design_0.trb, etc.: Metadata files containing diffusion traces and alignment details
+            Outputs designs in the output_dir.
         """
         # Initialize the Task class
         super().__init__(device=device, extra_args=extra_args)
@@ -967,7 +780,7 @@ class RFDiffusionAA(Task):
 class EasyMD(Task):
     #"command": "easymd run {input_file} --output {output_prefix} --duration {duration} --relax-duration {relax_duration} --output-frequency {output_frequency} {ligand_files} {forcefield_files} {water_model} {pH} {hydrogen_variants} {ionic_strength} {box_padding} {custom_bonds} {custom_angles} {custom_torsions} {minimize_only} {extra_args}", 
         
-    def __init__(self, input_file: Union[str, Path], output_prefix: Union[str, Path], duration: int, relax_duration: int = 1, output_frequency: int = 1, ligand_files: List[Union[str, Path]] = [], forcefield_files: List[str] = ['amber14-all.xml', 'amber14/tip3p.xml'], water_model: str = 'tip3p', pH: float = 7.0, hydrogen_variants: Optional[List[str]] = None, ionic_strength: float = 0.15, box_padding: float = 1.0, custom_bonds: List[str] = [], custom_angles: List[str] = [], custom_torsions: List[str] = [], minimize_only: bool = False, device: str = 'gpu', extra_args: str = ""):
+    def __init__(self, input_file, output_prefix, duration, relax_duration=1, output_frequency=1, ligand_files=[], forcefield_files=['amber14-all.xml', 'amber14/tip3p.xml'], water_model='tip3p', pH=7.0, hydrogen_variants=None, ionic_strength=0.15, box_padding=1.0, custom_bonds=[], custom_angles=[], custom_torsions=[], minimize_only=False, device='gpu', extra_args=""):
         """
         Initialize a RFDiffusionAA task.
 
@@ -1000,10 +813,7 @@ class EasyMD(Task):
             extra_args (str): Additional arguments for the task.
 
         Returns:
-            None
-            Outputs the following files using output_prefix:
-                - [output_prefix].pdb: Topology and final coordinate structure file
-                - [output_prefix].dcd: Trajectory coordinate file containing simulation frames
+            Outputs PDB, DCD files using the given output_prefix.
         """
         # Initialize the Task class
         super().__init__(device=device, extra_args=extra_args)
@@ -1057,159 +867,53 @@ class EasyMD(Task):
                     device = self.device)
         
         return 
- 
-class RosettaLigandPrepare(Task):
-    def __init__(self, input_file: Union[str, Path], output_dir: Union[str, Path] = '.', 
-                 name: Optional[str] = None, prefix: Optional[str] = None, centroid: bool = False,
-                 chain: Optional[str] = None, center: Optional[str] = None, max_confs: Optional[int] = None,
-                 root_atom: Optional[int] = None, nbr_atom: Optional[int] = None, kinemage: Optional[str] = None,
-                 amino_acid: Optional[str] = None, clobber: bool = False, no_param: bool = False, no_pdb: bool = False,
-                 extra_torsion_output: bool = False, keep_names: bool = False, long_names: bool = False,
-                 recharge: Optional[int] = None, m_ctrl: Optional[str] = None, mm_as_virt: bool = False,
-                 skip_bad_conformers: bool = False, conformers_in_one_file: bool = False,
-                 device: str = 'cpu', extra_args: str = ""):
+
+class EasyMD_Process(Task):
+    #"command": "easymd process {input_top_file} {input_traj_file} --output_prefix {output_prefix} {extra_args}",
+
+    def __init__(self, input_top_file, input_traj_file, output_prefix, device='cpu', extra_args=""):
         """
-        Initialize a RosettaLigandPrepare task.
+        Initialize an EasyMD_Process task.
 
         Args:
-            input_file (str or Path): Must specify input .mol, .sdf, or .mol2 file!
-            output_dir (str or Path): Directory where parameter and coordinates files will be saved. Default is '.'.
-            name (str, optional): Name ligand residues NM1,NM2,... instead of LG1,LG2,...
-            prefix (str, optional): Prefix for PDB file names.
-            centroid (bool): Write files for Rosetta centroid mode too.
-            chain (str, optional): The chain letter to use for the output PDB ligand.
-            center (str, optional): Translate output PDB coords to have given heavy-atom centroid (format 'X,Y,Z').
-            max_confs (int, optional): Don't expand proton chis if above this many total confs.
-            root_atom (int, optional): Which atom in the molfile is the root? (indexed from 1).
-            nbr_atom (int, optional): Which atom in the molfile is the nbr atom? (indexed from 1).
-            kinemage (str, optional): Write ligand topology to FILE.
-            amino_acid (str, optional): Set up params file for modified amino acid; .mol2 only; edit chis afterward. Implies --keep-names.
-            clobber (bool): Overwrite existing files.
-            no_param (bool): Skip writing .params files (for debugging).
-            no_pdb (bool): Skip writing .pdb files (for debugging).
-            extra_torsion_output (bool): Writing additional torsion files.
-            keep_names (bool): Leaves atom names untouched except for duplications.
-            long_names (bool): If specified name is longer than 3 letters, keep entire name in param NAME field.
-            recharge (int, optional): Ignore existing partial charges, setting total charge to CHG.
-            m_ctrl (str, optional): Read additional M control lines from FILE.
-            mm_as_virt (bool): Assign mm atom types as VIRT, rather than X.
-            skip_bad_conformers (bool): If a conformer has atoms in the wrong order, skip it and continue rather than dying.
-            conformers_in_one_file (bool): Output 1st conformer to NAME.pdb and all others to NAME_conformers.pdb.
+            input_top_file (str): Topology file for the trajectory (e.g. PDB/GRO/PRMTOP).
+            input_traj_file (str): Trajectory file to process (e.g. DCD/XTC).
+            output_prefix (str): Prefix for processed output files.
             device (str): The device to run the task on. Default is 'cpu'.
             extra_args (str): Additional arguments for the task.
 
         Returns:
-            None
-            Outputs the following files under output_dir:
-                - [name].params: Rosetta parameter topology file for the ligand
-                - [name]_0001.pdb: Conformer structure file in PDB format
+            Outputs processed files using the given output_prefix.
         """
+        # Initialize the Task class
         super().__init__(device=device, extra_args=extra_args)
-        self.task_name = "RosettaLigandPrepare"
-        
-        self.input_file = input_file
-        self.output_dir = output_dir
-        self.name = name
-        self.prefix = prefix
-        self.centroid = centroid
-        self.chain = chain
-        self.center = center
-        self.max_confs = max_confs
-        self.root_atom = root_atom
-        self.nbr_atom = nbr_atom
-        self.kinemage = kinemage
-        self.amino_acid = amino_acid
-        self.clobber = clobber
-        self.no_param = no_param
-        self.no_pdb = no_pdb
-        self.extra_torsion_output = extra_torsion_output
-        self.keep_names = keep_names
-        self.long_names = long_names
-        self.recharge = recharge
-        self.m_ctrl = m_ctrl
-        self.mm_as_virt = mm_as_virt
-        self.skip_bad_conformers = skip_bad_conformers
-        self.conformers_in_one_file = conformers_in_one_file
+
+        # This Task name matches the name in the tasks.json file
+        self.task_name = "EasyMD_Process"
+
+        # Your arguments here:
+        self.input_top_file = input_top_file
+        self.input_traj_file = input_traj_file
+        self.output_prefix = output_prefix
+        self.device = device
 
     def run(self):
-        import os
+
         # Make directories:
-        self.output_dir = make_directory(self.output_dir)
+        Path(self.output_prefix).parent.mkdir(parents=True, exist_ok=True)
 
-        # Resolve paths to absolute paths
-        input_file_abs = Path(self.input_file).resolve()
-        if not input_file_abs.exists():
-            raise FileNotFoundError(f"Input molecular file does not exist: {self.input_file}")
-
-        m_ctrl_abs = Path(self.m_ctrl).resolve() if self.m_ctrl else None
-        if m_ctrl_abs and not m_ctrl_abs.exists():
-            raise FileNotFoundError(f"M control file does not exist: {self.m_ctrl}")
-
-        # Construct ligand flags
-        flags = []
-        if self.name:
-            flags.append(f"-n {self.name}")
-        if self.prefix:
-            flags.append(f"-p {self.prefix}")
-        if self.centroid:
-            flags.append("-c")
-        if self.chain:
-            flags.append(f"--chain={self.chain}")
-        if self.center:
-            flags.append(f"--center={self.center}")
-        if self.max_confs is not None:
-            flags.append(f"-m {self.max_confs}")
-        if self.root_atom is not None:
-            flags.append(f"--root_atom={self.root_atom}")
-        if self.nbr_atom is not None:
-            flags.append(f"--nbr_atom={self.nbr_atom}")
-        if self.kinemage:
-            flags.append(f"-k {self.kinemage}")
-        if self.amino_acid:
-            flags.append(f"-a {self.amino_acid}")
-        if self.clobber:
-            flags.append("--clobber")
-        if self.no_param:
-            flags.append("--no-param")
-        if self.no_pdb:
-            flags.append("--no-pdb")
-        if self.extra_torsion_output:
-            flags.append("--extra_torsion_output")
-        if self.keep_names:
-            flags.append("--keep-names")
-        if self.long_names:
-            flags.append("--long-names")
-        if self.recharge is not None:
-            flags.append(f"--recharge={self.recharge}")
-        if m_ctrl_abs:
-            flags.append(f"--m-ctrl={m_ctrl_abs}")
-        if self.mm_as_virt:
-            flags.append("--mm-as-virt")
-        if self.skip_bad_conformers:
-            flags.append("--skip-bad-conformers")
-        if self.conformers_in_one_file:
-            flags.append("--conformers-in-one-file")
-
-        ligand_flags = " ".join(flags)
-
-        # Run the task by changing working directories to output_dir
-        orig_cwd = os.getcwd()
-        os.chdir(self.output_dir)
-        try:
-            self._run_task(
-                self.task_name,
-                input_file=str(input_file_abs),
-                ligand_flags=ligand_flags,
-                extra_args=self.extra_args,
-                device=self.device
-            )
-        finally:
-            os.chdir(orig_cwd)
+        # Run the task:
+        self._run_task(self.task_name,
+                    input_top_file=self.input_top_file,
+                    input_traj_file=self.input_traj_file,
+                    output_prefix=str(self.output_prefix),
+                    extra_args=self.extra_args,
+                    device=self.device)
 
         return
- 
+       
 class Custom(Task):
-    def __init__(self, command: str, container: str = 'Ribbon', device: str = 'cpu'):
+    def __init__(self, command, container='Ribbon', device='cpu'):
         """
         Initialize a Custom task.
         This allows the user to run a custom command in a specified container.
@@ -1219,11 +923,6 @@ class Custom(Task):
             command (str): The command to run.
             container (str): The container to run the command in. Default is 'Ribbon'.
             device (str): The device to run the task on. Default is 'cpu'.
-
-        Returns:
-            None
-            Outputs:
-                - Custom files/directories depending on the custom command executed
         """
         # Initialize the Task class
         super().__init__()

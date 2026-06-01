@@ -107,7 +107,14 @@
         "name": "EasyMD",
         "description": "Prepare and run an MD simulation with EasyMD",
         "container": "EasyMD",
-        "command": "easymd run {input_file} --output {output_prefix} --duration {duration} --relax-duration {relax_duration} --output-frequency {output_frequency} {ligand_files} {forcefield_files} --water-model {water_model} --ph {pH} {hydrogen_variants} --ionic-strength {ionic_strength} --box-padding {box_padding} {custom_bonds} {custom_angles} {custom_torsions} {minimize_only} {extra_args}", 
+        "command": "easymd run {input_file} --output {output_prefix} --duration {duration} --relax-duration {relax_duration} --output-frequency {output_frequency} {ligand_files} {forcefield_files} --water-model {water_model} --ph {pH} {hydrogen_variants} --ionic-strength {ionic_strength} --box-padding {box_padding} {custom_bonds} {custom_angles} {custom_torsions} {minimize_only} {extra_args}",
+        "requirements": "None"
+    },
+    "EasyMD_Process": {
+        "name": "EasyMD_Process",
+        "description": "Process an MD trajectory with EasyMD",
+        "container": "EasyMD",
+        "command": "easymd process {input_top_file} {input_traj_file} --output-prefix {output_prefix} {extra_args}",
         "requirements": "None"
     },
     "Reduce": {
@@ -115,6 +122,20 @@
         "description": "Add hydrogens to a PDB file using Reduce.",
         "container": "Reduce",
         "command": "python3 {TASKS_MODULE_DIR}/task_scripts/reduce/reduce.py {input_pdb} {output_pdb} {flip} {custom_ligand_sdfs} {custom_ligand_resnames} {extra_args}",
+        "requirements": "None"
+    },
+    "RosettaLigandPrepare": {
+        "name": "RosettaLigandPrepare",
+        "description": "Prepare a small molecule ligand for Rosetta using molfile_to_params.py.",
+        "container": "Rosetta",
+        "command": "python /opt/rosetta/scripts/molfile_to_params.py {input_file} {ligand_flags} {extra_args}",
+        "requirements": "None"
+    },
+    "Custom": {
+        "name": "Custom",
+        "description": "Run a custom command inside a container.",
+        "container": "Ribbon",
+        "command": "{command}",
         "requirements": "None"
     }
 }

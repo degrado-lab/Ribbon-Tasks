@@ -26,7 +26,12 @@ def test_task_smoke(case, tmp_path, request):
 
     task_class = getattr(task_mod, case["class_name"])
     kwargs = case["kwargs_builder"](case_dir, out_dir)
-    task = task_class(**kwargs)
+    try:
+        task = task_class(**kwargs)
+    except NotImplementedError:
+        if case.get("expect_not_implemented", False):
+            pytest.skip("Task not yet implemented as expected.")
+        raise
 
     timeout_multiplier = request.config.getoption("--smoke-timeout-multiplier")
     timeout_s = max(1, int(case["timeout_s"] * timeout_multiplier))

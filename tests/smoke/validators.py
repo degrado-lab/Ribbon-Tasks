@@ -82,6 +82,12 @@ def _validate_numeric_tolerance(spec: dict[str, Any], out_dir: Path, expected_di
     ), f"numeric mismatch for {actual_path}: actual={actual_value}, expected={expected_value}, tolerance={tolerance}"
 
 
+def _validate_glob_exists(spec: dict[str, Any], out_dir: Path, _expected_dir: Path) -> None:
+    pattern = spec["pattern"]
+    matches = list(out_dir.glob(pattern))
+    assert len(matches) > 0, f"no matches found for pattern '{pattern}' under {out_dir}"
+
+
 VALIDATORS = {
     "exists": _validate_exists,
     "nonempty": _validate_nonempty,
@@ -90,6 +96,7 @@ VALIDATORS = {
     "json_equals": _validate_json_equals,
     "csv_columns": _validate_csv_columns,
     "numeric_tolerance": _validate_numeric_tolerance,
+    "glob_exists": _validate_glob_exists,
 }
 
 
@@ -99,3 +106,4 @@ def run_validations(validations: list[dict[str, Any]], out_dir: Path, expected_d
         if kind not in VALIDATORS:
             raise ValueError(f"Unknown validator kind: {kind}")
         VALIDATORS[kind](spec, out_dir, expected_dir)
+
