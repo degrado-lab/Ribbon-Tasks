@@ -172,5 +172,25 @@
         "container": "BioPython",
         "command": "python3 {script_file} {script_args} {extra_args}",
         "requirements": "None"
+    },
+    "PLACER": {
+        "name": "PLACER",
+        "description": "Run PLACER (Protein-Ligand Atomistic Conformational Ensemble Resolver) to predict ligand binding poses and sidechain conformations.",
+        "container": "PLACER",
+        "command": "python /app/PLACER/run_PLACER.py {input_flag} --odir {output_dir} -n {num_samples} {predict_ligand_flag} {fixed_ligand_flag} {predict_multi_flag} {target_res_flag} {ligand_file_flag} {rerank_flag} {bonds_flag} {mutate_flag} {crop_centers_flag} {corruption_centers_flag} {residue_json_flag} {fixed_ligand_noise_flag} {exclude_common_ligands_flag} {ignore_ligand_hydrogens_flag} {use_sm_flag} {suffix_flag} {cautious_flag} {weights_flag} {extra_args}",
+        "requirements": "None"
+    },
+    "ESMFold2": {
+        "name": "ESMFold2",
+        "description": "Run ESMFold2 all-atom co-folding of protein + DNA/RNA/ligand.",
+        "container": "ESMFold2",
+        "command": "python {TASKS_MODULE_DIR}/task_scripts/esmfold2/esmfold2_batch.py {input_flags} --out {output_dir} {ligand_flags} {model_flag} {num_diffusion_samples_flag} {num_loops_flag} {num_sampling_steps_flag} {chunk_size_flag} {seeds_flag} {overwrite_flag} {no_warmup_flag} {extra_args}",
+        "requirements": "None",
+        "environment_variables": {
+            "XDG_CACHE_HOME": "/tmp/xdg_cache_ribbon",
+            "TRITON_CACHE_DIR": "/tmp/triton_cache_ribbon",
+            "TORCHINDUCTOR_CACHE_DIR": "/tmp/inductor_cache_ribbon",
+            "HF_HOME": "/tmp/hf_cache_ribbon"
+        }
     }
 }

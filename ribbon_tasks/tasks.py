@@ -2811,3 +2811,674 @@ class BioPythonScript(Task):
 
 BiopythonScript = BioPythonScript
 RunBioPythonScript = BioPythonScript
+
+
+class PLACER(Task):
+    """
+    Protein-Ligand Atomistic Conformational Ensemble Resolver (PLACER).
+
+    PLACER is an all-atom graph neural network that denoises atomic coordinates to predict
+    ligand binding poses, dock ligands into protein pockets, predict protein sidechain
+    conformations, and model conformational heterogeneity.
+    """
+
+    def __init__(
+        self,
+        output_dir: Union[str, Path] = ".",
+        input_file: Optional[Union[str, Path]] = None,
+        input_dir: Optional[Union[str, Path]] = None,
+        input_files: Optional[List[Union[str, Path]]] = None,
+        num_samples: int = 10,
+        predict_ligand: Optional[Union[str, List[str]]] = None,
+        fixed_ligand: Optional[Union[str, List[str]]] = None,
+        predict_multi: bool = False,
+        target_res: Optional[str] = None,
+        ligand_file: Optional[Union[str, List[str], Dict[str, Union[str, Path]]]] = None,
+        rerank: Optional[str] = None,
+        bonds: Optional[Union[str, List[str]]] = None,
+        mutate: Optional[Union[str, List[str], Dict[str, str]]] = None,
+        crop_centers: Optional[Union[str, List[str]]] = None,
+        corruption_centers: Optional[Union[str, List[str]]] = None,
+        residue_json: Optional[Union[str, Path]] = None,
+        fixed_ligand_noise: Optional[float] = None,
+        exclude_common_ligands: bool = False,
+        ignore_ligand_hydrogens: bool = False,
+        use_sm: bool = True,
+        suffix: Optional[str] = None,
+        cautious: bool = False,
+        weights: Optional[Union[str, Path]] = None,
+        device: str = "gpu",
+        extra_args: str = "",
+        dry_run: bool = False,
+        **kwargs,
+    ):
+        """
+        Initialize a PLACER task.
+
+        Args:
+            output_dir (str or Path): Output folder to save models and CSV files. Default is '.'.
+            input_file (str or Path, optional): Path to single input PDB or mmCIF file (or list file).
+            input_dir (str or Path, optional): Directory containing input PDB files.
+            input_files (list of str or Path, optional): List of input PDB/mmCIF files.
+            num_samples (int): Number of samples/models to generate per structure. Default is 10.
+            predict_ligand (str or list of str, optional): Ligand identifier(s) to predict (e.g. 'D-LDP-501').
+            fixed_ligand (str or list of str, optional): Ligand identifier(s) to keep fixed.
+            predict_multi (bool): Predict and score all allowed ligands in input simultaneously. Default False.
+            target_res (str, optional): Residue used as crop center (e.g. 'A-149' or 'A-149-TRP').
+            ligand_file (str, list of str, or dict, optional): Reference ligand definition(s)
+                (e.g. 'HEM:ligand.mol2', {'HEM': 'ligand.mol2'}, or 'HEM:CCD').
+            rerank (str, optional): Metric to rank output models and CSV ('prmsd', 'plddt', 'plddt_pde').
+            bonds (str or list of str, optional): Space-separated list or list of bonds
+                (e.g. 'A-42-ALA-CB:B-173-JRP-CL:1.5').
+            mutate (str, list of str, or dict, optional): Positions to mutate
+                (e.g. '128A:75I', ['128A:75I', '5A:TRP'], or {'128A': '75I'}).
+            crop_centers (str or list of str, optional): Atom names used as crop centers.
+            corruption_centers (str or list of str, optional): Atom names used as corruption centers.
+            residue_json (str or Path, optional): JSON file specifying custom residues to add to CCD library.
+            fixed_ligand_noise (float, optional): Noise added to fixed ligand coordinates.
+            exclude_common_ligands (bool): Exclude common solvents and crystallographic additives. Default False.
+            ignore_ligand_hydrogens (bool): Ignore hydrogen mismatch in ligand definitions. Default False.
+            use_sm (bool): Whether to make predictions with small molecule (True for holo, False for apo). Default True.
+            suffix (str, optional): Suffix added to output PDB and CSV files.
+            cautious (bool): Skip prediction if output CSV already exists. Default False.
+            weights (str or Path, optional): Custom model weights .pt file.
+            device (str): Execution device ('gpu', 'cpu', 'gpu_wsl'). Default is 'gpu'.
+            extra_args (str): Additional commandline arguments passed to run_PLACER.py.
+            dry_run (bool): If True, create mock output files without invoking container. Default False.
+        """
+        # Support aliases
+        if input_file is None:
+            input_file = (
+                kwargs.pop("pdb_file", None)
+                or kwargs.pop("pdb_input_file", None)
+                or kwargs.pop("input_structure", None)
+                or kwargs.pop("cif_file", None)
+                or kwargs.pop("ifile", None)
+            )
+        if input_dir is None:
+            input_dir = kwargs.pop("idir", None)
+        if "nsamples" in kwargs:
+            num_samples = kwargs.pop("nsamples")
+        if predict_ligand is None and "predict_ligands" in kwargs:
+            predict_ligand = kwargs.pop("predict_ligands")
+        if fixed_ligand is None and "fixed_ligands" in kwargs:
+            fixed_ligand = kwargs.pop("fixed_ligands")
+        if ligand_file is None and "ligand_files" in kwargs:
+            ligand_file = kwargs.pop("ligand_files")
+
+        if kwargs:
+            raise TypeError(f"PLACER.__init__() got unexpected keyword argument(s): {list(kwargs.keys())}")
+
+        input_count = sum(x is not None for x in [input_file, input_dir, input_files])
+        if input_count != 1:
+            raise ValueError("Provide exactly one of: input_file, input_dir, input_files")
+
+        if num_samples < 1:
+            raise ValueError(f"num_samples must be >= 1, got {num_samples}")
+
+        if rerank is not None and rerank not in ["prmsd", "plddt", "plddt_pde"]:
+            raise ValueError(f"Invalid rerank scoreterm '{rerank}'. Must be one of: 'prmsd', 'plddt', 'plddt_pde'")
+
+        super().__init__(device=device, extra_args=extra_args)
+        self.task_name = "PLACER"
+
+        self.output_dir = Path(output_dir)
+        self.input_file = Path(input_file) if input_file is not None else None
+        self.input_dir = Path(input_dir) if input_dir is not None else None
+        self.input_files = [Path(f) for f in input_files] if input_files is not None else None
+        self.num_samples = num_samples
+        self.predict_ligand = predict_ligand
+        self.fixed_ligand = fixed_ligand
+        self.predict_multi = predict_multi
+        self.target_res = target_res
+        self.ligand_file = ligand_file
+        self.rerank = rerank
+        self.bonds = bonds
+        self.mutate = mutate
+        self.crop_centers = crop_centers
+        self.corruption_centers = corruption_centers
+        self.residue_json = Path(residue_json) if residue_json is not None else None
+        self.fixed_ligand_noise = fixed_ligand_noise
+        self.exclude_common_ligands = exclude_common_ligands
+        self.ignore_ligand_hydrogens = ignore_ligand_hydrogens
+        self.use_sm = use_sm
+        self.suffix = suffix
+        self.cautious = cautious
+        self.weights = Path(weights) if weights is not None else None
+        self.device = device
+        self.dry_run = dry_run
+
+    def _get_input_labels(self) -> List[str]:
+        """Determine base labels for output file naming."""
+        labels = []
+        if self.input_file is not None:
+            name = self.input_file.name
+            for ext in [".cif.gz", ".cif", ".pdb", ".ent"]:
+                if name.endswith(ext):
+                    name = name[:-len(ext)]
+                    break
+            labels.append(f"{name}_{self.suffix}" if self.suffix else name)
+        elif self.input_files is not None:
+            for f in self.input_files:
+                name = Path(f).name
+                for ext in [".cif.gz", ".cif", ".pdb", ".ent"]:
+                    if name.endswith(ext):
+                        name = name[:-len(ext)]
+                        break
+                labels.append(f"{name}_{self.suffix}" if self.suffix else name)
+        elif self.input_dir is not None:
+            if self.input_dir.exists():
+                for f in sorted(self.input_dir.glob("*.pdb")):
+                    name = f.stem
+                    labels.append(f"{name}_{self.suffix}" if self.suffix else name)
+            if not labels:
+                labels.append(f"model_{self.suffix}" if self.suffix else "model")
+        return labels
+
+    @property
+    def output_csv(self) -> Optional[Path]:
+        """Return primary output CSV score file path (if single input structure)."""
+        labels = self._get_input_labels()
+        if labels:
+            return self.output_dir / f"{labels[0]}.csv"
+        return None
+
+    @property
+    def output_model_pdb(self) -> Optional[Path]:
+        """Return primary output multimodel PDB file path (if single input structure)."""
+        labels = self._get_input_labels()
+        if labels:
+            return self.output_dir / f"{labels[0]}_model.pdb"
+        return None
+
+    def _run_dry(self):
+        """Generate realistic mock outputs for dry-run validation."""
+        self.output_dir = make_directory(self.output_dir)
+        labels = self._get_input_labels()
+        for label in labels:
+            csv_path = self.output_dir / f"{label}.csv"
+            pdb_path = self.output_dir / f"{label}_model.pdb"
+
+            with open(csv_path, "w") as f:
+                f.write("label,model_idx,fape,lddt,rmsd,kabsch,prmsd,plddt,plddt_pde\n")
+                for i in range(1, self.num_samples + 1):
+                    f.write(f"{label},{i},2.177,0.852,7.594,1.151,6.062,0.468,0.668\n")
+
+            with open(pdb_path, "w") as f:
+                for i in range(1, self.num_samples + 1):
+                    f.write(f"MODEL {i}\n")
+                    f.write("ATOM      1  N   SER A   1       0.000   0.000   0.000  1.00  0.15           N\n")
+                    f.write("ATOM      2  CA  SER A   1       1.458   0.000   0.000  1.00  0.12           C\n")
+                    f.write("ATOM      3  C   SER A   1       2.000   1.400   0.000  1.00  0.11           C\n")
+                    f.write("ATOM      4  O   SER A   1       1.300   2.400   0.000  1.00  0.23           O\n")
+                    f.write("TER\n")
+                    f.write("ENDMDL\n")
+
+    def run(self):
+        """Execute PLACER inference or generate mock files in dry_run mode."""
+        if self.dry_run:
+            self._run_dry()
+            return
+
+        self.output_dir = make_directory(self.output_dir.resolve())
+
+        # 1. Resolve and validate input
+        if self.input_file is not None:
+            inp = self.input_file.resolve()
+            if not inp.exists():
+                raise FileNotFoundError(f"Input file not found: {inp}")
+            input_flag = f'-f "{inp}"'
+        elif self.input_dir is not None:
+            inp_dir = self.input_dir.resolve()
+            if not inp_dir.exists():
+                raise FileNotFoundError(f"Input directory not found: {inp_dir}")
+            input_flag = f'-i "{inp_dir}"'
+        elif self.input_files is not None:
+            resolved_files = []
+            for f in self.input_files:
+                p = Path(f).resolve()
+                if not p.exists():
+                    raise FileNotFoundError(f"Input file not found: {p}")
+                resolved_files.append(str(p))
+            if len(resolved_files) == 1:
+                input_flag = f'-f "{resolved_files[0]}"'
+            else:
+                list_file = self.output_dir / "placer_input_list.txt"
+                with open(list_file, "w") as f:
+                    for rf in resolved_files:
+                        f.write(f"{rf}\n")
+                input_flag = f'-f "{list_file}"'
+
+        # 2. Format optional arguments
+        predict_ligand_flag = ""
+        if self.predict_ligand is not None:
+            if isinstance(self.predict_ligand, (list, tuple)):
+                items = " ".join(str(x) for x in self.predict_ligand)
+            else:
+                items = str(self.predict_ligand)
+            predict_ligand_flag = f"--predict_ligand {items}"
+
+        fixed_ligand_flag = ""
+        if self.fixed_ligand is not None:
+            if isinstance(self.fixed_ligand, (list, tuple)):
+                items = " ".join(str(x) for x in self.fixed_ligand)
+            else:
+                items = str(self.fixed_ligand)
+            fixed_ligand_flag = f"--fixed_ligand {items}"
+
+        predict_multi_flag = "--predict_multi" if self.predict_multi else ""
+        target_res_flag = f"--target_res {self.target_res}" if self.target_res else ""
+
+        ligand_file_flag = ""
+        if self.ligand_file is not None:
+            parts = []
+            if isinstance(self.ligand_file, dict):
+                for name, path in self.ligand_file.items():
+                    if str(path).upper() == "CCD":
+                        parts.append(f"{name}:CCD")
+                    else:
+                        p = Path(path).resolve()
+                        if not p.exists():
+                            raise FileNotFoundError(f"Ligand reference file not found: {p}")
+                        parts.append(f"{name}:{p}")
+            elif isinstance(self.ligand_file, (list, tuple)):
+                for item in self.ligand_file:
+                    item_str = str(item)
+                    if ":" in item_str:
+                        name, path = item_str.split(":", 1)
+                        if path.upper() == "CCD":
+                            parts.append(f"{name}:CCD")
+                        else:
+                            p = Path(path).resolve()
+                            if not p.exists():
+                                raise FileNotFoundError(f"Ligand reference file not found: {p}")
+                            parts.append(f"{name}:{p}")
+                    else:
+                        parts.append(item_str)
+            else:
+                item_str = str(self.ligand_file)
+                if ":" in item_str:
+                    name, path = item_str.split(":", 1)
+                    if path.upper() == "CCD":
+                        parts.append(f"{name}:CCD")
+                    else:
+                        p = Path(path).resolve()
+                        if not p.exists():
+                            raise FileNotFoundError(f"Ligand reference file not found: {p}")
+                        parts.append(f"{name}:{p}")
+                else:
+                    parts.append(item_str)
+            ligand_file_flag = f"--ligand_file {' '.join(parts)}"
+
+        rerank_flag = f"--rerank {self.rerank}" if self.rerank else ""
+
+        bonds_flag = ""
+        if self.bonds is not None:
+            if isinstance(self.bonds, (list, tuple)):
+                items = " ".join(str(x) for x in self.bonds)
+            else:
+                items = str(self.bonds)
+            bonds_flag = f"--bonds {items}"
+
+        mutate_flag = ""
+        if self.mutate is not None:
+            if isinstance(self.mutate, dict):
+                items = " ".join(f"{pos}:{resn}" for pos, resn in self.mutate.items())
+            elif isinstance(self.mutate, (list, tuple)):
+                items = " ".join(str(x) for x in self.mutate)
+            else:
+                items = str(self.mutate)
+            mutate_flag = f"--mutate {items}"
+
+        crop_centers_flag = ""
+        if self.crop_centers is not None:
+            if isinstance(self.crop_centers, (list, tuple)):
+                items = " ".join(str(x) for x in self.crop_centers)
+            else:
+                items = str(self.crop_centers)
+            crop_centers_flag = f"--crop_centers {items}"
+
+        corruption_centers_flag = ""
+        if self.corruption_centers is not None:
+            if isinstance(self.corruption_centers, (list, tuple)):
+                items = " ".join(str(x) for x in self.corruption_centers)
+            else:
+                items = str(self.corruption_centers)
+            corruption_centers_flag = f"--corruption_centers {items}"
+
+        residue_json_flag = ""
+        if self.residue_json is not None:
+            res_p = self.residue_json.resolve()
+            if not res_p.exists():
+                raise FileNotFoundError(f"Residue JSON file not found: {res_p}")
+            residue_json_flag = f'--residue_json "{res_p}"'
+
+        fixed_ligand_noise_flag = f"--fixed_ligand_noise {self.fixed_ligand_noise}" if self.fixed_ligand_noise is not None else ""
+        exclude_common_ligands_flag = "--exclude_common_ligands" if self.exclude_common_ligands else ""
+        ignore_ligand_hydrogens_flag = "--ignore_ligand_hydrogens" if self.ignore_ligand_hydrogens else ""
+        use_sm_flag = "" if self.use_sm else "--no-use_sm"
+        suffix_flag = f"--suffix {self.suffix}" if self.suffix else ""
+        cautious_flag = "--cautious" if self.cautious else ""
+
+        weights_flag = ""
+        if self.weights is not None:
+            w_p = self.weights.resolve()
+            if not w_p.exists():
+                raise FileNotFoundError(f"Weights file not found: {w_p}")
+            weights_flag = f'--weights "{w_p}"'
+
+        # 3. Device translation
+        ribbon_device = self.device if self.device in ["gpu", "gpu_wsl", "cpu"] else "gpu"
+
+        # 4. Invoke Task runner
+        self._run_task(
+            self.task_name,
+            input_flag=input_flag,
+            output_dir=str(self.output_dir),
+            num_samples=self.num_samples,
+            predict_ligand_flag=predict_ligand_flag,
+            fixed_ligand_flag=fixed_ligand_flag,
+            predict_multi_flag=predict_multi_flag,
+            target_res_flag=target_res_flag,
+            ligand_file_flag=ligand_file_flag,
+            rerank_flag=rerank_flag,
+            bonds_flag=bonds_flag,
+            mutate_flag=mutate_flag,
+            crop_centers_flag=crop_centers_flag,
+            corruption_centers_flag=corruption_centers_flag,
+            residue_json_flag=residue_json_flag,
+            fixed_ligand_noise_flag=fixed_ligand_noise_flag,
+            exclude_common_ligands_flag=exclude_common_ligands_flag,
+            ignore_ligand_hydrogens_flag=ignore_ligand_hydrogens_flag,
+            use_sm_flag=use_sm_flag,
+            suffix_flag=suffix_flag,
+            cautious_flag=cautious_flag,
+            weights_flag=weights_flag,
+            extra_args=self.extra_args,
+            device=ribbon_device,
+        )
+
+
+Placer = PLACER
+
+
+class ESMFold2(Task):
+    """
+    Biohub ESMFold2 and ESMFold2-Fast.
+
+    All-atom co-folding of protein and DNA/RNA/ligand complexes using the 6B-parameter
+    ESMC language model and all-atom diffusion trunk.
+    """
+
+    def __init__(
+        self,
+        output_dir: Union[str, Path] = ".",
+        fasta_file: Optional[Union[str, Path]] = None,
+        sequence: Optional[str] = None,
+        sequences: Optional[Union[Dict[str, str], List[Tuple[str, str]]]] = None,
+        config: Optional[Union[str, Path]] = None,
+        ligands: Optional[Union[str, List[str], Dict[str, str]]] = None,
+        apo: bool = True,
+        conditions: Optional[List[str]] = None,
+        model: str = "full",
+        num_diffusion_samples: int = 5,
+        num_loops: Optional[int] = None,
+        num_sampling_steps: Optional[int] = None,
+        chunk_size: Optional[int] = None,
+        seeds: Optional[Union[int, List[int]]] = None,
+        overwrite: bool = False,
+        no_warmup: bool = False,
+        device: str = "gpu",
+        extra_args: str = "",
+        dry_run: bool = False,
+        **kwargs,
+    ):
+        """
+        Initialize an ESMFold2 task.
+
+        Args:
+            output_dir (str or Path): Output directory to save predicted structures and summaries. Default is '.'.
+            fasta_file (str or Path, optional): FASTA file with protein sequence(s). Multi-chain complexes use ':' in sequence.
+            sequence (str, optional): Single sequence string, optionally prefixed with 'NAME=' (e.g. '1ubq=MQIF...').
+            sequences (dict or list of tuple, optional): Sequence collection as {name: seq} or [(name, seq), ...].
+            config (str or Path, optional): JSON matrix configuration file ({sequences, ligands, conditions, seeds, settings}).
+            ligands (dict, list, or str, optional): Ligand definitions (e.g. {'BTN': 'ccd:BTN', 'TSA': 'smiles:Cc1...'}
+                or ['BTN=ccd:BTN', 'TSA=smiles:...']).
+            apo (bool): Include apo (ligand-free) folding condition. Default is True.
+            conditions (list of str, optional): Explicit subset of defined conditions to run.
+            model (str): Model checkpoint ('full' for ESMFold2, 'fast' for ESMFold2-Fast). Default is 'full'.
+            num_diffusion_samples (int): Number of diffusion structure samples per condition. Default is 5.
+            num_loops (int, optional): Number of recycle/refinement loops. Default is 10.
+            num_sampling_steps (int, optional): Number of diffusion sampling steps. Default is 68.
+            chunk_size (int, optional): Sequence chunk size for lower peak VRAM on long targets.
+            seeds (int or list of int, optional): Random seed(s) (e.g. 5 for seeds 0..4, or [42, 100]).
+            overwrite (bool): Force re-running folds already recorded in manifest.jsonl. Default False.
+            no_warmup (bool): Skip initial throwaway warmup fold. Default False.
+            device (str): Device to run inference on ('gpu', 'gpu_wsl', 'cpu'). Default is 'gpu'.
+            extra_args (str): Additional CLI arguments passed to esmfold2_batch.py.
+            dry_run (bool): If True, create mock output files without invoking container. Default False.
+        """
+        # Aliases
+        if fasta_file is None and "input_fasta" in kwargs:
+            fasta_file = kwargs.pop("input_fasta")
+        if fasta_file is None and "input_file" in kwargs:
+            inp = kwargs.pop("input_file")
+            if str(inp).endswith(".json"):
+                config = inp
+            else:
+                fasta_file = inp
+        if "fast" in kwargs:
+            if kwargs.pop("fast"):
+                model = "fast"
+        if "num_samples" in kwargs:
+            num_diffusion_samples = kwargs.pop("num_samples")
+        if "samples" in kwargs:
+            num_diffusion_samples = kwargs.pop("samples")
+        if ligands is None:
+            if "smiles" in kwargs:
+                sm = kwargs.pop("smiles")
+                ligands = {"LIG": f"smiles:{sm}" if not str(sm).startswith("smiles:") else str(sm)}
+            elif "smiles_string" in kwargs:
+                sm = kwargs.pop("smiles_string")
+                ligands = {"LIG": f"smiles:{sm}" if not str(sm).startswith("smiles:") else str(sm)}
+            elif "ccd" in kwargs:
+                c = kwargs.pop("ccd")
+                ligands = {str(c): f"ccd:{c}" if not str(c).startswith("ccd:") else str(c)}
+
+        if kwargs:
+            raise TypeError(f"ESMFold2.__init__() got unexpected keyword argument(s): {list(kwargs.keys())}")
+
+        input_count = sum(x is not None for x in [fasta_file, sequence, sequences, config])
+        if input_count != 1:
+            raise ValueError("Provide exactly one of: fasta_file, sequence, sequences, config")
+
+        if model not in ["full", "fast"]:
+            raise ValueError(f"Invalid model '{model}'. Must be 'full' (ESMFold2) or 'fast' (ESMFold2-Fast)")
+
+        super().__init__(device=device, extra_args=extra_args)
+        self.task_name = "ESMFold2"
+
+        self.output_dir = Path(output_dir)
+        self.fasta_file = Path(fasta_file) if fasta_file is not None else None
+        self.sequence = sequence
+        self.sequences = sequences
+        self.config = Path(config) if config is not None else None
+        self.ligands = ligands
+        self.apo = apo
+        self.conditions = conditions
+        self.model = model
+        self.num_diffusion_samples = num_diffusion_samples
+        self.num_loops = num_loops
+        self.num_sampling_steps = num_sampling_steps
+        self.chunk_size = chunk_size
+        self.seeds = seeds
+        self.overwrite = overwrite
+        self.no_warmup = no_warmup
+        self.device = device
+        self.dry_run = dry_run
+
+    def _get_target_names(self) -> List[str]:
+        names = []
+        if self.fasta_file is not None:
+            if self.fasta_file.exists():
+                try:
+                    for line in self.fasta_file.read_text().splitlines():
+                        if line.strip().startswith(">"):
+                            names.append(line.strip()[1:].split()[0])
+                except Exception:
+                    pass
+            if not names:
+                names = [self.fasta_file.stem]
+        elif self.sequence is not None:
+            if "=" in self.sequence:
+                names = [self.sequence.split("=", 1)[0]]
+            else:
+                names = ["seq1"]
+        elif self.sequences is not None:
+            if isinstance(self.sequences, dict):
+                names = list(self.sequences.keys())
+            else:
+                names = [n for n, _ in self.sequences]
+        else:
+            names = ["target"]
+        return names
+
+    @property
+    def summary_csv(self) -> Path:
+        """Path to output summary CSV table."""
+        return self.output_dir / "summary.csv"
+
+    @property
+    def output_cif_files(self) -> List[Path]:
+        """List of generated mmCIF predicted structure files."""
+        return sorted(self.output_dir.glob("*.cif"))
+
+    def _run_dry(self):
+        """Generate realistic mock outputs for dry-run validation."""
+        self.output_dir = make_directory(self.output_dir)
+        names = self._get_target_names()
+
+        for name in names:
+            cif_path = self.output_dir / f"{name}__apo__s0__m0.cif"
+            cif_path.write_text(
+                "data_mock\n"
+                "_entry.id mock\n"
+                "#\n"
+                "_atom_site.group_PDB\n"
+                "_atom_site.id\n"
+                "_atom_site.type_symbol\n"
+                "_atom_site.label_atom_id\n"
+                "_atom_site.label_comp_id\n"
+                "_atom_site.label_asym_id\n"
+                "_atom_site.label_seq_id\n"
+                "_atom_site.Cartn_x\n"
+                "_atom_site.Cartn_y\n"
+                "_atom_site.Cartn_z\n"
+                "_atom_site.occupancy\n"
+                "_atom_site.B_iso_or_equiv\n"
+                "ATOM 1 N N SER A 1 0.000 0.000 0.000 1.00 85.0\n"
+            )
+
+        summary_path = self.output_dir / "summary.csv"
+        with open(summary_path, "w") as f:
+            f.write("ok,name,cond,seed,n_res,n_tokens,checkpoint,seed_samples,plddt_mean,plddt_best,ptm_mean,iptm_mean,fold_s,peak_vram_gb,error,cif\n")
+            for name in names:
+                f.write(f"True,{name},apo,0,76,76,ESMFold2,1,0.85,0.85,0.80,,3.5,14.0,,{name}__apo__s0__m0.cif\n")
+
+    def run(self):
+        """Execute ESMFold2 inference or simulate dry run."""
+        if self.dry_run:
+            self._run_dry()
+            return
+
+        self.output_dir = make_directory(self.output_dir.resolve())
+
+        # Ensure user-owned cache dirs exist
+        for d in ["/tmp/xdg_cache_ribbon", "/tmp/triton_cache_ribbon", "/tmp/inductor_cache_ribbon", "/tmp/hf_cache_ribbon"]:
+            Path(d).mkdir(parents=True, exist_ok=True)
+
+        # 1. Format input flags
+        if self.fasta_file is not None:
+            inp = self.fasta_file.resolve()
+            if not inp.exists():
+                raise FileNotFoundError(f"FASTA file not found: {inp}")
+            input_flags = f'--fasta "{inp}"'
+        elif self.sequence is not None:
+            if "=" in self.sequence:
+                seq_str = self.sequence
+            else:
+                seq_str = f"seq1={self.sequence}"
+            input_flags = f'--sequence "{seq_str}"'
+        elif self.sequences is not None:
+            flags = []
+            if isinstance(self.sequences, dict):
+                for n, q in self.sequences.items():
+                    flags.append(f'--sequence "{n}={q}"')
+            else:
+                for n, q in self.sequences:
+                    flags.append(f'--sequence "{n}={q}"')
+            input_flags = " ".join(flags)
+        elif self.config is not None:
+            cfg = self.config.resolve()
+            if not cfg.exists():
+                raise FileNotFoundError(f"Config file not found: {cfg}")
+            input_flags = f'--config "{cfg}"'
+
+        # 2. Format ligand flags
+        lflags = []
+        if self.apo:
+            lflags.append("--apo")
+        if self.ligands is not None:
+            if isinstance(self.ligands, dict):
+                for name, spec in self.ligands.items():
+                    lflags.append(f'--ligand "{name}={spec}"')
+            elif isinstance(self.ligands, (list, tuple)):
+                for item in self.ligands:
+                    lflags.append(f'--ligand "{item}"')
+            else:
+                lflags.append(f'--ligand "{self.ligands}"')
+        if not self.apo and not self.ligands:
+            lflags.append("--apo")
+        ligand_flags = " ".join(lflags)
+
+        # 3. Model & execution flags
+        model_flag = f"--model {self.model}"
+        num_diffusion_samples_flag = f"--num-diffusion-samples {self.num_diffusion_samples}"
+        num_loops_flag = f"--num-loops {self.num_loops}" if self.num_loops is not None else ""
+        num_sampling_steps_flag = f"--num-sampling-steps {self.num_sampling_steps}" if self.num_sampling_steps is not None else ""
+        chunk_size_flag = f"--chunk-size {self.chunk_size}" if self.chunk_size is not None else ""
+
+        if self.seeds is not None:
+            if isinstance(self.seeds, int):
+                seeds_flag = f"--seeds {self.seeds}"
+            else:
+                seeds_flag = f"--seed-list {','.join(str(s) for s in self.seeds)}"
+        else:
+            seeds_flag = ""
+
+        overwrite_flag = "--overwrite" if self.overwrite else ""
+        no_warmup_flag = "--no-warmup" if self.no_warmup else ""
+
+        # 4. Device translation
+        ribbon_device = self.device if self.device in ["gpu", "gpu_wsl", "cpu"] else "gpu"
+
+        # 5. Invoke runner
+        self._run_task(
+            self.task_name,
+            input_flags=input_flags,
+            output_dir=str(self.output_dir),
+            ligand_flags=ligand_flags,
+            model_flag=model_flag,
+            num_diffusion_samples_flag=num_diffusion_samples_flag,
+            num_loops_flag=num_loops_flag,
+            num_sampling_steps_flag=num_sampling_steps_flag,
+            chunk_size_flag=chunk_size_flag,
+            seeds_flag=seeds_flag,
+            overwrite_flag=overwrite_flag,
+            no_warmup_flag=no_warmup_flag,
+            extra_args=self.extra_args,
+            device=ribbon_device,
+        )
+
+
+Esmfold2 = ESMFold2

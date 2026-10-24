@@ -100,9 +100,78 @@ The available model parameters are:
 'RaptorX-Single-ESM1b-ESM1v-ProtTrans-Ab.pt'
 ```
 
+## PLACER
+PLACER is an all-atom graph neural network that denoises atomic coordinates to predict ligand binding poses, dock ligands into protein pockets, predict protein sidechain conformations, and generate conformational ensembles.
+It takes a PDB/mmCIF structure (with ligand present in the input file or defined via ligand reference files) and outputs a multimodel PDB of predicted conformers (`<label>_model.pdb`) along with confidence and geometric scores in a CSV file (`<label>.csv`).
 
+### Simple
+Predict ligand binding conformations in a protein-ligand complex and rerank poses by predicted RMSD (pRMSD):
+```python
+ribbon.PLACER(
+    input_file="protein_ligand.pdb",
+    output_dir="./placer_out",
+    num_samples=10,
+    predict_ligand="D-LDP-501",           # Ligand ID to predict and dock
+    rerank="prmsd",                       # Rerank output models by predicted RMSD (prmsd, plddt, or plddt_pde)
+    device="gpu"
+).run()
+```
 
+### Advanced
+Predict multiple ligands simultaneously in a pocket with reference topology definitions, mutating specific pocket positions, adding covalent bond constraints, and fixing a co-factor:
+```python
+ribbon.PLACER(
+    input_file="complex.pdb",
+    output_dir="./placer_advanced_out",
+    num_samples=50,
+    predict_ligand=["D-LDP-501", "C-HEM-500"],  # Predict inhibitor and heme together
+    predict_multi=True,                         # Dock and score multiple ligands simultaneously
+    ligand_file={                               # Provide SDF/MOL2 files for exact hybridization/bonds
+        "HEM": "ligands/HEM.mol2",
+        "LDP": "ligands/LDP.sdf"
+    },
+    mutate={"128A": "TRP", "130A": "GLY"},      # Mutate pocket residues
+    bonds=["A-42-CYS-SG:D-501-LDP-C1:1.8"],     # Covalent bond constraint (atom1:atom2:distance)
+    target_res="A-149",                         # Center crop sphere on a specific residue
+    rerank="prmsd",
+    device="gpu"
+).run()
+```
 
+## ESMFold2
+ESMFold2 is an all-atom co-folding tool for proteins, nucleic acids, and small molecule ligands developed by the Chan Zuckerberg Biohub. It pairs the 6B-parameter ESMC protein language model with an all-atom diffusion trunk.
+It accepts FASTA files, sequence strings, or multimers (`:` separated chains), and outputs predicted mmCIF structures (`<name>__<cond>__s<seed>__m<k>.cif`) alongside a `summary.csv` and `manifest.jsonl` recording pLDDT, pTM, ipTM, and runtime metrics.
 
+### Simple
+Fold a protein sequence in apo mode using the distilled ESMFold2-Fast model:
+```python
+ribbon.ESMFold2(
+    sequence="MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG",
+    output_dir="./esmfold2_out",
+    model="fast",                         # 'fast' (ESMFold2-Fast) or 'full' (ESMFold2 6B trunk)
+    num_diffusion_samples=2,              # Number of diffusion samples to generate
+    apo=True,
+    device="gpu"
+).run()
+```
 
-
+### Advanced
+Co-fold a multi-chain protein complex with both small-molecule ligands and cofactors across multiple random seeds, using sequence chunking for memory efficiency:
+```python
+ribbon.ESMFold2(
+    fasta_file="heterodimer.fasta",       # FASTA containing sequence(s), with ':' separating chains for complexes
+    output_dir="./esmfold2_complex_out",
+    model="full",                         # Full 6B-parameter ESMFold2 model
+    ligands={                             # Define ligands by CCD code or SMILES string
+        "BTN": "ccd:BTN",                 # Biotin from Chemical Component Dictionary
+        "INHIBITOR": "smiles:Cc1cc(=O)oc2c1ccc1nn[nH]c12"
+    },
+    apo=True,                             # Also evaluate the apo state in the same batch run
+    num_diffusion_samples=5,              # 5 structural samples per condition
+    num_loops=10,                         # Recycling loops
+    num_sampling_steps=68,                # Diffusion sampling steps
+    chunk_size=128,                       # Chunk size for long targets to fit in GPU memory
+    seeds=[42, 100],                      # Multiple random seeds for sampling diversity
+    device="gpu"
+).run()
+```

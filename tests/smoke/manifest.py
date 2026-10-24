@@ -199,6 +199,30 @@ def _bindcraft2_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
     }
 
 
+def _placer_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    return {
+        "input_file": str(case_dir / "inputs" / "dnHEM1.pdb"),
+        "output_dir": str(out_dir),
+        "num_samples": 1,
+        "ligand_file": f"HEM:{case_dir / 'inputs' / 'HEM.mol2'}",
+        "rerank": "prmsd",
+        "device": "gpu",
+    }
+
+
+def _esmfold2_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    return {
+        "fasta_file": str(case_dir / "inputs" / "ubiquitin.fasta"),
+        "output_dir": str(out_dir),
+        "model": "fast",
+        "num_diffusion_samples": 1,
+        "num_loops": 3,
+        "num_sampling_steps": 14,
+        "no_warmup": True,
+        "device": "gpu",
+    }
+
+
 def _pymol_script_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
     out_file = out_dir / "output.txt"
     return {
@@ -460,5 +484,33 @@ SMOKE_CASES: list[dict[str, Any]] = [
         ],
         "timeout_s": 120,
         "requires_gpu": False,
+    },
+    {
+        "name": "PLACER",
+        "class_name": "PLACER",
+        "case_dir": CASES_DIR / "placer",
+        "kwargs_builder": _placer_case,
+        "validations": [
+            {"kind": "exists", "path": "dnHEM1.csv"},
+            {"kind": "nonempty", "path": "dnHEM1.csv"},
+            {"kind": "exists", "path": "dnHEM1_model.pdb"},
+            {"kind": "nonempty", "path": "dnHEM1_model.pdb"},
+        ],
+        "timeout_s": 300,
+        "requires_gpu": True,
+    },
+    {
+        "name": "ESMFold2",
+        "class_name": "ESMFold2",
+        "case_dir": CASES_DIR / "esmfold2",
+        "kwargs_builder": _esmfold2_case,
+        "validations": [
+            {"kind": "exists", "path": "summary.csv"},
+            {"kind": "nonempty", "path": "summary.csv"},
+            {"kind": "exists", "path": "ubiquitin__apo__s0__m0.cif"},
+            {"kind": "nonempty", "path": "ubiquitin__apo__s0__m0.cif"},
+        ],
+        "timeout_s": 300,
+        "requires_gpu": True,
     },
 ]
