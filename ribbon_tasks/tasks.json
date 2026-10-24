@@ -3,7 +3,7 @@
         "name": "LigandMPNN",
         "description": "Run LigandMPNN on a set of PDB files.",
         "container": "LigandMPNN",
-        "command": "python3 LigandMPNN/run.py --pdb_path_multi {pdb_input_json} --out_folder {output_dir} --batch_size {num_designs} --temperature {temperature} {model_type_flag} {homo_oligomer_flag} {pack_side_chains_flag} {repack_everything_flag} {number_of_packs_per_design_flag} {extra_args}",
+        "command": "python3 LigandMPNN/run.py --pdb_path_multi {pdb_input_json} --out_folder {output_dir} --batch_size {num_designs} --temperature {temperature} {model_type_flag} {checkpoint_protein_mpnn_flag} {checkpoint_ligand_mpnn_flag} {checkpoint_per_residue_label_membrane_mpnn_flag} {checkpoint_global_label_membrane_mpnn_flag} {checkpoint_soluble_mpnn_flag} {checkpoint_path_sc_flag} {fasta_seq_separation_flag} {verbose_flag} {fixed_residues_flag} {fixed_residues_multi_flag} {redesigned_residues_flag} {redesigned_residues_multi_flag} {bias_aa_flag} {bias_aa_per_residue_flag} {bias_aa_per_residue_multi_flag} {omit_aa_flag} {omit_aa_per_residue_flag} {omit_aa_per_residue_multi_flag} {symmetry_residues_flag} {symmetry_weights_flag} {homo_oligomer_flag} {file_ending_flag} {zero_indexed_flag} {seed_flag} {number_of_batches_flag} {save_stats_flag} {ligand_mpnn_use_atom_context_flag} {ligand_mpnn_cutoff_for_score_flag} {ligand_mpnn_use_side_chain_context_flag} {chains_to_design_flag} {parse_these_chains_only_flag} {transmembrane_buried_flag} {transmembrane_interface_flag} {global_transmembrane_label_flag} {parse_atoms_with_zero_occupancy_flag} {pack_side_chains_flag} {number_of_packs_per_design_flag} {sc_num_denoising_steps_flag} {sc_num_samples_flag} {repack_everything_flag} {force_hetatm_flag} {packed_suffix_flag} {pack_with_ligand_context_flag} {extra_args}",
         "requirements": "None"
     },
     "LASErMPNN": {
@@ -131,11 +131,46 @@
         "command": "python /opt/rosetta/scripts/molfile_to_params.py {input_file} {ligand_flags} {extra_args}",
         "requirements": "None"
     },
+    "RosettaScripts": {
+        "name": "RosettaScripts",
+        "description": "Run RosettaScripts on a set of PDB files.",
+        "container": "Rosetta",
+        "command": "rosetta_scripts -in:file:s {pdb_string} -parser:protocol {protocol_xml} -out:path:pdb {output_dir} -out:path:score {output_dir} {extra_args}",
+        "requirements": "None"
+    },
+    "LDDM": {
+        "name": "LDDM",
+        "description": "Generate molecules or dock ligands using LDDM (Ligand Denoising Diffusion Model).",
+        "container": "LDDM",
+        "command": "lddm-sample {mode} --protein {protein} --ref_ligand {ref_ligand} --checkpoint {checkpoint} --output {output_file} --n_samples {n_samples} --n_steps {n_steps} --sampler {sampler} --sampling_noise {sampling_noise} {batch_size_flag} {molecule_size_flag} {ligand_flag} {atoms_to_dock_flag} {n_frames_flag} {return_projected_final_flag} {seed_flag} {device_flag} {verbose_flag} {extra_args}",
+        "requirements": "None"
+    },
+    "BindCraft2": {
+        "name": "BindCraft2",
+        "description": "Design protein binders, miniproteins, VHHs, and peptides using BindCraft2.",
+        "container": "BindCraft2",
+        "command": "bindcraft design {settings_file} {core_flag} {modality_flag} {property_flags} {set_flags} {metadata_flag} {extra_args}",
+        "requirements": "None"
+    },
     "Custom": {
         "name": "Custom",
         "description": "Run a custom command inside a container.",
         "container": "Ribbon",
         "command": "{command}",
+        "requirements": "None"
+    },
+    "PyMolScript": {
+        "name": "PyMolScript",
+        "description": "Run a Python script inside the PyMol container.",
+        "container": "PyMol",
+        "command": "python3 {script_file} {script_args} {extra_args}",
+        "requirements": "None"
+    },
+    "BioPythonScript": {
+        "name": "BioPythonScript",
+        "description": "Run a Python script inside the BioPython container.",
+        "container": "BioPython",
+        "command": "python3 {script_file} {script_args} {extra_args}",
         "requirements": "None"
     }
 }
