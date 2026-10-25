@@ -46,5 +46,21 @@
     "LASErMPNN": [
         "laserMPNN_25.7.31.sif",
         "oras://docker.io/nicholasfreitas/lasermpnn:25.7.31"
+    ],
+    "LDDM": [
+        "lddm_0.1.0.sif",
+        "oras://docker.io/nicholasfreitas/lddm:0.1.0"
+    ],
+    "BindCraft2": [
+        "bindcraft2_1.0.2.sif",
+        "oras://docker.io/nicholasfreitas/bindcraft2:1.0.2"
+    ],
+    "PLACER": [
+        "placer_25.6.15.sif",
+        "oras://docker.io/nicholasfreitas/placer:25.6.15"
+    ],
+    "ESMFold2": [
+        "esmfold2_26.9.5.sif",
+        "oras://docker.io/nicholasfreitas/esmfold2:26.9.5"
     ]
 }

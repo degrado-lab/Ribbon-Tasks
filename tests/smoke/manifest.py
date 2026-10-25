@@ -165,6 +165,84 @@ def _custom_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
     }
 
 
+def _lddm_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    return {
+        "output_dir": str(out_dir),
+        "protein": str(case_dir / "inputs" / "kras.pdb"),
+        "ref_ligand": str(case_dir / "inputs" / "kras_ref_ligand.sdf"),
+        "mode": "design",
+        "n_samples": 1,
+        "n_steps": 5,
+        "device": "gpu",
+    }
+
+
+def _bindcraft2_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    return {
+        "output_dir": str(out_dir),
+        "target_pdb": str(case_dir / "inputs" / "hPDL1.pdb"),
+        "chains": "A",
+        "hotspots": "54,56,66,115",
+        "modality": "binder",
+        "binder_lengths": [35, 35],
+        "number_of_final_designs": 1,
+        "max_trajectories": 1,
+        "screen_steps": 2,
+        "refine_steps": 2,
+        "anneal_steps": 2,
+        "harden_steps": 1,
+        "mutate_steps": 2,
+        "design_recycles": 1,
+        "validation_recycles": 1,
+        "campaign_seed": 42,
+        "device": "gpu",
+    }
+
+
+def _placer_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    return {
+        "input_file": str(case_dir / "inputs" / "dnHEM1.pdb"),
+        "output_dir": str(out_dir),
+        "num_samples": 1,
+        "ligand_file": f"HEM:{case_dir / 'inputs' / 'HEM.mol2'}",
+        "rerank": "prmsd",
+        "device": "gpu",
+    }
+
+
+def _esmfold2_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    return {
+        "fasta_file": str(case_dir / "inputs" / "ubiquitin.fasta"),
+        "output_dir": str(out_dir),
+        "model": "fast",
+        "num_diffusion_samples": 1,
+        "num_loops": 3,
+        "num_sampling_steps": 14,
+        "no_warmup": True,
+        "device": "gpu",
+    }
+
+
+def _pymol_script_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    out_file = out_dir / "output.txt"
+    return {
+        "script_file": str(case_dir / "inputs" / "run_pymol.py"),
+        "script_args": [str(out_file)],
+        "output_file": str(out_file),
+        "device": "cpu",
+    }
+
+
+def _biopython_script_case(case_dir: Path, out_dir: Path) -> dict[str, Any]:
+    out_file = out_dir / "output.txt"
+    return {
+        "script_file": str(case_dir / "inputs" / "run_biopython.py"),
+        "script_args": [str(out_file)],
+        "output_file": str(out_file),
+        "device": "cpu",
+    }
+
+
 SMOKE_CASES: list[dict[str, Any]] = [
     {
         "name": "Reduce",
@@ -357,6 +435,82 @@ SMOKE_CASES: list[dict[str, Any]] = [
         "kwargs_builder": _easy_md_case,
         "validations": [],
         "timeout_s": 600,
+        "requires_gpu": True,
+    },
+    {
+        "name": "LDDM",
+        "class_name": "LDDM",
+        "case_dir": CASES_DIR / "lddm",
+        "kwargs_builder": _lddm_case,
+        "validations": [
+            {"kind": "exists", "path": "samples.sdf"},
+            {"kind": "nonempty", "path": "samples.sdf"},
+        ],
+        "timeout_s": 300,
+        "requires_gpu": True,
+    },
+    {
+        "name": "BindCraft2",
+        "class_name": "BindCraft2",
+        "case_dir": CASES_DIR / "bindcraft2",
+        "kwargs_builder": _bindcraft2_case,
+        "validations": [
+            {"kind": "exists", "path": "summary.csv"},
+            {"kind": "nonempty", "path": "summary.csv"},
+        ],
+        "timeout_s": 600,
+        "requires_gpu": True,
+    },
+    {
+        "name": "PyMolScript",
+        "class_name": "PyMolScript",
+        "case_dir": CASES_DIR / "pymol_script",
+        "kwargs_builder": _pymol_script_case,
+        "validations": [
+            {"kind": "exists", "path": "output.txt"},
+            {"kind": "nonempty", "path": "output.txt"},
+        ],
+        "timeout_s": 120,
+        "requires_gpu": False,
+    },
+    {
+        "name": "BioPythonScript",
+        "class_name": "BioPythonScript",
+        "case_dir": CASES_DIR / "biopython_script",
+        "kwargs_builder": _biopython_script_case,
+        "validations": [
+            {"kind": "exists", "path": "output.txt"},
+            {"kind": "nonempty", "path": "output.txt"},
+        ],
+        "timeout_s": 120,
+        "requires_gpu": False,
+    },
+    {
+        "name": "PLACER",
+        "class_name": "PLACER",
+        "case_dir": CASES_DIR / "placer",
+        "kwargs_builder": _placer_case,
+        "validations": [
+            {"kind": "exists", "path": "dnHEM1.csv"},
+            {"kind": "nonempty", "path": "dnHEM1.csv"},
+            {"kind": "exists", "path": "dnHEM1_model.pdb"},
+            {"kind": "nonempty", "path": "dnHEM1_model.pdb"},
+        ],
+        "timeout_s": 300,
+        "requires_gpu": True,
+    },
+    {
+        "name": "ESMFold2",
+        "class_name": "ESMFold2",
+        "case_dir": CASES_DIR / "esmfold2",
+        "kwargs_builder": _esmfold2_case,
+        "validations": [
+            {"kind": "exists", "path": "summary.csv"},
+            {"kind": "nonempty", "path": "summary.csv"},
+            {"kind": "exists", "path": "ubiquitin__apo__s0__m0.cif"},
+            {"kind": "nonempty", "path": "ubiquitin__apo__s0__m0.cif"},
+        ],
+        "timeout_s": 300,
         "requires_gpu": True,
     },
 ]
